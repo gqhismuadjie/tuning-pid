@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    html,body{margin:0;padding:0;background:#ece8de;}
+    select{font-family:'IBM Plex Mono',monospace;}
+    button{font-family:'IBM Plex Mono',monospace;}
+    ::-webkit-scrollbar{width:9px;height:9px;}
+    ::-webkit-scrollbar-thumb{background:#cbc5b5;border-radius:6px;}
+    @keyframes recpulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  </style>
+</helmet>
+<div style="min-height:100vh;background:#ece8de;color:#1b1a17;font-family:'IBM Plex Sans',sans-serif;padding:18px 20px 40px;">
+
+  <!-- HEADER -->
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:13px;">
+      <div style="width:38px;height:38px;border-radius:9px;background:#1b1a17;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <div style="width:15px;height:15px;border:2.5px solid #ea8a0c;border-radius:50%;border-right-color:transparent;border-bottom-color:transparent;transform:rotate(20deg);"></div>
+      </div>
+      <div>
+        <div style="font:700 17px/1 'IBM Plex Sans',sans-serif;letter-spacing:-.01em;">REKALIBRASI <span style="color:#ea8a0c;">CONTROL LAB</span></div>
+        <div style="font:500 11px/1.4 'IBM Plex Mono',monospace;color:#8a8478;letter-spacing:.04em;margin-top:3px;">PID LIVE TUNING SIMULATOR · PROCESS CONTROL TRAINING</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:9px;">
+      <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;background:#fff;border:1px solid #e3ddd0;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ statusDot }};{{ statusAnim }}"></span>
+        <span style="color:#1b1a17;">{{ statusText }}</span>
+      </div>
+      <div style="padding:7px 13px;border-radius:8px;background:#fff;border:1px solid #e3ddd0;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#7c766a;">t = <span style="color:#1b1a17;">{{ tD }}</span> s</div>
+    </div>
+  </div>
+
+  <!-- MAIN COLUMNS -->
+  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;">
+
+    <!-- ================= LEFT COLUMN ================= -->
+    <div style="flex:1 1 300px;min-width:288px;max-width:368px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- CONTROLLER CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:15px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+          <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#1b1a17;">Controller</span>
+          <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#b0aa9b;letter-spacing:.05em;">PID · PARALLEL</span>
+        </div>
+
+        <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:#8a8478;margin-bottom:6px;">Algorithm</div>
+        <div style="display:flex;gap:4px;background:#f1ede3;padding:4px;border-radius:9px;margin-bottom:12px;">
+          <button onClick="{{ on.typeP }}" style="{{ sty.typeP }}">P</button>
+          <button onClick="{{ on.typePI }}" style="{{ sty.typePI }}">PI</button>
+          <button onClick="{{ on.typePID }}" style="{{ sty.typePID }}">PID</button>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:#8a8478;margin-bottom:6px;">Mode</div>
+            <div style="display:flex;gap:4px;background:#f1ede3;padding:4px;border-radius:9px;">
+              <button onClick="{{ on.modeMan }}" style="{{ sty.modeMan }}">MAN</button>
+              <button onClick="{{ on.modeAuto }}" style="{{ sty.modeAuto }}">AUTO</button>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:#8a8478;margin-bottom:6px;">Action</div>
+            <div style="display:flex;gap:4px;background:#f1ede3;padding:4px;border-radius:9px;">
+              <button onClick="{{ on.dirDir }}" style="{{ sty.dirDir }}">DIR</button>
+              <button onClick="{{ on.dirRev }}" style="{{ sty.dirRev }}">REV</button>
+            </div>
+          </div>
+        </div>
+
+        <dc-import name="ParamSlider" label="Setpoint" unit="PV" hint="Target value the controller drives the process toward. Changing it triggers a step test." value="{{ sp }}" display="{{ spD }}" min="0" max="100" step="0.5" on-input="{{ h.sp }}" hint-size="100%,52px"></dc-import>
+        <form onSubmit="{{ on.spSubmit }}" style="display:flex;align-items:center;gap:7px;margin:-1px 0 4px;">
+          <span style="font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:#8a8478;white-space:nowrap;">Go to</span>
+          <input type="number" value="{{ sp }}" min="0" max="100" step="0.5" onInput="{{ h.sp }}" style="flex:1;min-width:0;padding:7px 9px;border:1px solid #e3ddd0;border-radius:7px;background:#faf8f3;font:600 12px/1 'IBM Plex Mono',monospace;color:#1b1a17;" />
+          <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#b0aa9b;">PV</span>
+          <button type="submit" style="padding:7px 13px;border:none;border-radius:7px;background:#1b1a17;font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;cursor:pointer;">SET</button>
+        </form>
+        <dc-import name="ParamSlider" label="Kp · Prop. gain" unit="" hint="Proportional gain. Higher = faster, stronger response but more overshoot and possible oscillation." value="{{ Kp }}" display="{{ KpD }}" min="0" max="12" step="0.01" on-input="{{ h.Kp }}" hint-size="100%,52px"></dc-import>
+        <sc-if value="{{ isPI }}" hint-placeholder-val="{{ true }}">
+          <dc-import name="ParamSlider" label="Ki · Integral gain" unit="1/s" hint="Integral gain. Eliminates steady-state error; too high causes windup and oscillation." value="{{ Ki }}" display="{{ KiD }}" min="0" max="4" step="0.005" on-input="{{ h.Ki }}" hint-size="100%,52px"></dc-import>
+        </sc-if>
+        <sc-if value="{{ isPID }}" hint-placeholder-val="{{ true }}">
+          <dc-import name="ParamSlider" label="Kd · Deriv. gain" unit="s" hint="Derivative gain. Damps overshoot by reacting to rate of change; amplifies sensor noise." value="{{ Kd }}" display="{{ KdD }}" min="0" max="6" step="0.01" on-input="{{ h.Kd }}" hint-size="100%,52px"></dc-import>
+        </sc-if>
+        <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}">
+          <dc-import name="ParamSlider" label="Manual output" unit="%" hint="Direct controller output in manual mode. Switch to AUTO for bumpless transfer." value="{{ manual }}" display="{{ manualD }}" min="0" max="100" step="0.5" on-input="{{ h.manual }}" hint-size="100%,52px"></dc-import>
+        </sc-if>
+
+        <div style="margin-top:6px;padding-top:10px;border-top:1px dashed #e9e4d8;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span title="Back-calculation anti-windup freezes the integrator when the output saturates." style="font:600 10px/1.3 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#7c766a;cursor:help;">ANTI-WINDUP</span>
+          <button onClick="{{ on.awToggle }}" style="{{ sty.aw }}">{{ awTxt }}</button>
+        </div>
+
+        <details style="margin-top:8px;">
+          <summary style="font:600 10px/1.4 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#8a8478;cursor:pointer;list-style:none;">▸ ADVANCED · dt · output limits</summary>
+          <dc-import name="ParamSlider" label="Sampling time dt" unit="s" hint="Discrete controller / integration step. Smaller = more accurate, heavier." value="{{ dt }}" display="{{ dtD }}" min="0.01" max="0.5" step="0.01" on-input="{{ h.dt }}" hint-size="100%,52px"></dc-import>
+          <dc-import name="ParamSlider" label="Output min" unit="%" hint="Lower actuator / controller-output limit." value="{{ outMin }}" display="{{ outMinD }}" min="-50" max="50" step="1" on-input="{{ h.outMin }}" hint-size="100%,52px"></dc-import>
+          <dc-import name="ParamSlider" label="Output max" unit="%" hint="Upper actuator / controller-output limit (actuator saturation)." value="{{ outMax }}" display="{{ outMaxD }}" min="50" max="150" step="1" on-input="{{ h.outMax }}" hint-size="100%,52px"></dc-import>
+        </details>
+      </div>
+
+      <!-- PLANT CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:15px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#1b1a17;">Process Plant</span>
+          <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#ea8a0c;letter-spacing:.05em;">G(s)</span>
+        </div>
+        <select value="{{ plant }}" onChange="{{ on.plant }}" style="width:100%;padding:9px 11px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 12px/1 'IBM Plex Mono',monospace;color:#1b1a17;cursor:pointer;margin-bottom:6px;">
+          <option value="first">First Order — K/(τs+1)</option>
+          <option value="fopdt">FOPDT — first order + dead time</option>
+          <option value="second">Second Order — ωn, ζ</option>
+          <option value="sopdt">SOPDT — second order + dead time</option>
+          <option value="integrating">Integrating — K/s</option>
+        </select>
+        <div style="font:500 10.5px/1.4 'IBM Plex Mono',monospace;color:#9a948686;color:#a39d8f;margin-bottom:4px;min-height:14px;">{{ plantEq }}</div>
+
+        <dc-import name="ParamSlider" label="K · Process gain" unit="" hint="Steady-state output change per unit input. Sets the loop's overall sensitivity." value="{{ K }}" display="{{ KD }}" min="0.1" max="4" step="0.05" on-input="{{ h.K }}" hint-size="100%,52px"></dc-import>
+        <sc-if value="{{ showTau }}" hint-placeholder-val="{{ true }}">
+          <dc-import name="ParamSlider" label="τ · Time constant" unit="s" hint="Time to reach ~63% of final value. Larger = slower process." value="{{ tau }}" display="{{ tauD }}" min="1" max="40" step="0.5" on-input="{{ h.tau }}" hint-size="100%,52px"></dc-import>
+        </sc-if>
+        <sc-if value="{{ showZeta }}" hint-placeholder-val="{{ false }}">
+          <dc-import name="ParamSlider" label="ζ · Damping ratio" unit="" hint="<1 underdamped (oscillates), =1 critical, >1 overdamped." value="{{ zeta }}" display="{{ zetaD }}" min="0.1" max="2" step="0.02" on-input="{{ h.zeta }}" hint-size="100%,52px"></dc-import>
+        </sc-if>
+        <sc-if value="{{ showWn }}" hint-placeholder-val="{{ false }}">
+          <dc-import name="ParamSlider" label="ωn · Nat. frequency" unit="rad/s" hint="Natural frequency of the second-order process. Higher = faster." value="{{ wn }}" display="{{ wnD }}" min="0.1" max="2" step="0.02" on-input="{{ h.wn }}" hint-size="100%,52px"></dc-import>
+        </sc-if>
+        <sc-if value="{{ showTheta }}" hint-placeholder-val="{{ false }}">
+          <dc-import name="ParamSlider" label="θ · Dead time" unit="s" hint="Transport delay before the process reacts. The hardest dynamic to control." value="{{ theta }}" display="{{ thetaD }}" min="0" max="20" step="0.5" on-input="{{ h.theta }}" hint-size="100%,52px"></dc-import>
+        </sc-if>
+        <dc-import name="ParamSlider" label="Initial condition" unit="PV" hint="Process value at reset." value="{{ y0 }}" display="{{ y0D }}" min="0" max="100" step="1" on-input="{{ h.y0 }}" hint-size="100%,52px"></dc-import>
+      </div>
+
+      <!-- DISTURBANCE / NOISE / SATURATION CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:15px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#1b1a17;margin-bottom:12px;">Disturbance · Noise · Saturation</div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;">
+          <span style="font:600 10.5px/1.3 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#7c766a;">LOAD DISTURBANCE</span>
+          <button onClick="{{ on.distToggle }}" style="{{ sty.dist }}">{{ distTxt }}</button>
+        </div>
+        <dc-import name="ParamSlider" label="Magnitude" unit="" hint="Step load added to the process input — simulates an upset the controller must reject." value="{{ distMag }}" display="{{ distMagD }}" min="-40" max="40" step="1" on-input="{{ h.distMag }}" hint-size="100%,52px"></dc-import>
+        <button onClick="{{ on.distPulse }}" style="width:100%;margin:2px 0 12px;padding:7px;border:1px solid #e3ddd0;border-radius:7px;background:#faf8f3;font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#1b1a17;cursor:pointer;">⚡ INJECT PULSE (4 s)</button>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;border-top:1px dashed #e9e4d8;padding-top:11px;">
+          <span style="font:600 10.5px/1.3 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#7c766a;">SENSOR NOISE</span>
+          <button onClick="{{ on.noiseToggle }}" style="{{ sty.noise }}">{{ noiseTxt }}</button>
+        </div>
+        <dc-import name="ParamSlider" label="Std deviation σ" unit="PV" hint="Gaussian measurement noise on the transmitter. Watch how it couples through Kd." value="{{ noiseStd }}" display="{{ noiseStdD }}" min="0" max="4" step="0.1" on-input="{{ h.noiseStd }}" hint-size="100%,52px"></dc-import>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;border-top:1px dashed #e9e4d8;padding-top:11px;">
+          <span style="font:600 10.5px/1.3 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#7c766a;">ACTUATOR SLEW LIMIT</span>
+          <button onClick="{{ on.slewToggle }}" style="{{ sty.slew }}">{{ slewTxt }}</button>
+        </div>
+        <dc-import name="ParamSlider" label="Max rate" unit="%/s" hint="Limits how fast the valve / actuator can move — models real actuator dynamics." value="{{ slew }}" display="{{ slewD }}" min="5" max="300" step="5" on-input="{{ h.slew }}" hint-size="100%,52px"></dc-import>
+      </div>
+    </div>
+
+    <!-- ================= CENTER COLUMN ================= -->
+    <div style="flex:3 1 520px;min-width:440px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- SCOPE CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:15px 16px 14px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+          <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#1b1a17;">Live Response · Strip Chart</span>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:3px;border-radius:2px;background:#f5a623;"></span><span style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#7c766a;">SP</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1b1a17;">{{ spD }}</span></div>
+            <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:3px;border-radius:2px;background:#34d399;"></span><span style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#7c766a;">PV</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1b1a17;">{{ pvD }}</span></div>
+            <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:3px;border-radius:2px;background:#38bdf8;"></span><span style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#7c766a;">MV</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1b1a17;">{{ mvD }}%</span></div>
+            <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:3px;border-radius:2px;background:#94a3b8;"></span><span style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#7c766a;">ERR</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1b1a17;">{{ errD }}</span></div>
+          </div>
+        </div>
+
+        <div style="position:relative;border-radius:9px;overflow:hidden;border:1px solid #0a0e12;">
+          <canvas ref="{{ scopeRef }}" style="display:block;width:100%;height:352px;"></canvas>
+          <sc-if value="{{ saturated }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:9px;right:11px;padding:3px 9px;border-radius:5px;background:rgba(234,138,12,.18);border:1px solid #ea8a0c;font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#f5a623;animation:recpulse 1.1s ease-in-out infinite;">⚠ OUTPUT SATURATED</div>
+          </sc-if>
+        </div>
+
+        <!-- term readout -->
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px dashed #e9e4d8;">
+          <div style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#8a8478;">P-term <span style="color:#1b1a17;font-weight:600;">{{ pTermD }}</span></div>
+          <div style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#8a8478;">I-term <span style="color:#1b1a17;font-weight:600;">{{ iTermD }}</span></div>
+          <div style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#8a8478;">D-term <span style="color:#1b1a17;font-weight:600;">{{ dTermD }}</span></div>
+          <div style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#8a8478;">window <span style="color:#1b1a17;font-weight:600;">{{ windowSec }} s</span></div>
+        </div>
+      </div>
+
+      <!-- TRANSPORT CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:14px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button onClick="{{ on.run }}" style="{{ sty.run }}">{{ runTxt }}</button>
+        <button onClick="{{ on.step }}" style="display:flex;align-items:center;gap:6px;padding:10px 15px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 11.5px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#1b1a17;cursor:pointer;">⏭ STEP</button>
+        <button onClick="{{ on.reset }}" style="display:flex;align-items:center;gap:6px;padding:10px 15px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 11.5px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#1b1a17;cursor:pointer;">↺ RESET</button>
+
+        <div style="display:flex;align-items:center;gap:7px;margin-left:auto;">
+          <span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#8a8478;">SPEED</span>
+          <select value="{{ speed }}" onChange="{{ on.speed }}" style="padding:8px 9px;border:1px solid #e3ddd0;border-radius:7px;background:#faf8f3;font:600 11px/1 'IBM Plex Mono',monospace;color:#1b1a17;cursor:pointer;">
+            <option value="0.5">0.5×</option>
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+            <option value="5">5×</option>
+            <option value="10">10×</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#8a8478;">WINDOW</span>
+          <select value="{{ windowSec }}" onChange="{{ on.window }}" style="padding:8px 9px;border:1px solid #e3ddd0;border-radius:7px;background:#faf8f3;font:600 11px/1 'IBM Plex Mono',monospace;color:#1b1a17;cursor:pointer;">
+            <option value="30">30 s</option>
+            <option value="60">60 s</option>
+            <option value="120">120 s</option>
+          </select>
+        </div>
+        <div style="width:1px;height:24px;background:#e9e4d8;"></div>
+        <button onClick="{{ on.capRef }}" style="padding:9px 13px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#1b1a17;cursor:pointer;">⊕ SNAPSHOT</button>
+        <sc-if value="{{ hasRef }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ on.clrRef }}" style="padding:9px 13px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#7c766a;cursor:pointer;">✕ CLEAR REF</button>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ================= RIGHT COLUMN ================= -->
+    <div style="flex:1 1 280px;min-width:264px;max-width:340px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- METRICS CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:15px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#1b1a17;">Performance Metrics</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <dc-import name="MetricStat" label="Overshoot" unit="%" value="{{ mOver }}" tone="{{ tOver }}" hint="Peak excursion past setpoint, % of step size." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="Rise time" unit="s" value="{{ mRise }}" tone="#1b1a17" hint="Time from 10% to 90% of the step." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="Peak time" unit="s" value="{{ mPeak }}" tone="#1b1a17" hint="Time to first peak." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="Settling 2%" unit="s" value="{{ mSettle }}" tone="#1b1a17" hint="Last time PV left the ±2% band." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="SS error" unit="PV" value="{{ mSSE }}" tone="{{ tSSE }}" hint="Steady-state error = setpoint − PV." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="Ctrl effort" unit="" value="{{ mEffort }}" tone="#1b1a17" hint="Integral of |MV| — actuator work." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="IAE" unit="" value="{{ mIAE }}" tone="#1b1a17" hint="Integral of |error| dt." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="ISE" unit="" value="{{ mISE }}" tone="#1b1a17" hint="Integral of error² dt." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="ITAE" unit="" value="{{ mITAE }}" tone="#1b1a17" hint="Integral of t·|error| dt." hint-size="100%,58px"></dc-import>
+          <dc-import name="MetricStat" label="Max PV" unit="" value="{{ mMaxPv }}" tone="#1b1a17" hint="Maximum process value since step." hint-size="100%,58px"></dc-import>
+        </div>
+        <div style="font:500 9.5px/1.4 'IBM Plex Mono',monospace;color:#b0aa9b;margin-top:9px;">Metrics restart on each setpoint change / reset.</div>
+      </div>
+
+      <!-- AUTO-TUNING CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:15px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#1b1a17;margin-bottom:11px;">Auto-Tuning Lab</div>
+        <select value="{{ method }}" onChange="{{ on.method }}" style="width:100%;padding:9px 11px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 11.5px/1 'IBM Plex Mono',monospace;color:#1b1a17;cursor:pointer;margin-bottom:11px;">
+          <option value="zn">Ziegler–Nichols (open loop)</option>
+          <option value="cc">Cohen–Coon</option>
+          <option value="imc">IMC (lambda tuning)</option>
+        </select>
+
+        <div style="display:flex;gap:7px;margin-bottom:11px;">
+          <div style="flex:1;text-align:center;padding:9px 4px;background:#faf8f3;border:1px solid #ece7da;border-radius:8px;">
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;color:#8a8478;letter-spacing:.05em;margin-bottom:5px;">Kp</div>
+            <div style="font:600 15px/1 'IBM Plex Mono',monospace;color:#ea8a0c;">{{ tuneKp }}</div>
+          </div>
+          <div style="flex:1;text-align:center;padding:9px 4px;background:#faf8f3;border:1px solid #ece7da;border-radius:8px;">
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;color:#8a8478;letter-spacing:.05em;margin-bottom:5px;">Ki</div>
+            <div style="font:600 15px/1 'IBM Plex Mono',monospace;color:#ea8a0c;">{{ tuneKi }}</div>
+          </div>
+          <div style="flex:1;text-align:center;padding:9px 4px;background:#faf8f3;border:1px solid #ece7da;border-radius:8px;">
+            <div style="font:600 9px/1 'IBM Plex Mono',monospace;color:#8a8478;letter-spacing:.05em;margin-bottom:5px;">Kd</div>
+            <div style="font:600 15px/1 'IBM Plex Mono',monospace;color:#ea8a0c;">{{ tuneKd }}</div>
+          </div>
+        </div>
+        <button onClick="{{ on.applyTune }}" style="width:100%;padding:10px;border:none;border-radius:8px;background:#1b1a17;font:600 11.5px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#fff;cursor:pointer;margin-bottom:9px;">APPLY GAINS → CONTROLLER</button>
+        <div style="font:500 9.5px/1.45 'IBM Plex Mono',monospace;color:#a39d8f;">Identified FOPDT: {{ fopdtTxt }}. {{ tuneNote }}</div>
+      </div>
+
+      <!-- EXPORT CARD -->
+      <div style="background:#fff;border:1px solid #e3ddd0;border-radius:11px;padding:15px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#1b1a17;margin-bottom:11px;">Export Report</div>
+        <div style="display:flex;gap:8px;">
+          <button onClick="{{ on.expJSON }}" style="flex:1;padding:10px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#1b1a17;cursor:pointer;">⤓ JSON</button>
+          <button onClick="{{ on.expCSV }}" style="flex:1;padding:10px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#1b1a17;cursor:pointer;">⤓ CSV</button>
+        </div>
+        <div style="font:500 9.5px/1.45 'IBM Plex Mono',monospace;color:#b0aa9b;margin-top:9px;">Full history ({{ sampleCount }} samples) + config + metrics. PDF export reserved for a future release.</div>
+      </div>
+
+      <!-- LEARNING CARD -->
+      <div style="background:#1b1a17;border:1px solid #1b1a17;border-radius:11px;padding:15px 16px;box-shadow:0 1px 2px rgba(20,18,14,.04);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;">
+          <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#fff;">Learning Hint</span>
+          <span style="font:600 10px/1 'IBM Plex Mono',monospace;color:#ea8a0c;letter-spacing:.05em;">?</span>
+        </div>
+        <select value="{{ learn }}" onChange="{{ on.learn }}" style="width:100%;padding:9px 11px;border:1px solid #3a382f;border-radius:8px;background:#262420;font:600 11.5px/1 'IBM Plex Mono',monospace;color:#fff;cursor:pointer;margin-bottom:11px;">
+          <option value="Kp">What is Kp?</option>
+          <option value="Ki">What is Ki?</option>
+          <option value="Kd">What is Kd?</option>
+          <option value="overshoot">Overshoot</option>
+          <option value="settling">Settling time</option>
+          <option value="sserror">Steady-state error</option>
+          <option value="windup">Integral windup</option>
+          <option value="noise">Derivative noise</option>
+          <option value="deadtime">Dead time</option>
+        </select>
+        <div style="font:600 12px/1 'IBM Plex Sans',sans-serif;color:#f5a623;margin-bottom:7px;">{{ learnTitle }}</div>
+        <div style="font:400 12px/1.55 'IBM Plex Sans',sans-serif;color:#cfc9bd;">{{ learnBody }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAFETY DISCLAIMER -->
+  <div style="margin-top:18px;display:flex;align-items:flex-start;gap:11px;padding:13px 16px;border-radius:10px;background:#faf3e3;border:1px solid #ecd9a8;">
+    <div style="flex-shrink:0;width:22px;height:22px;border-radius:5px;background:#ea8a0c;display:flex;align-items:center;justify-content:center;font:700 13px/1 'IBM Plex Sans',sans-serif;color:#fff;">!</div>
+    <div style="font:500 11px/1.55 'IBM Plex Mono',monospace;color:#8a7a52;">
+      <span style="font-weight:600;color:#74652f;">SAFETY DISCLAIMER —</span> This simulator is intended solely for education, conceptual design, research, and engineering training. The generated tuning parameters must not be applied directly to real industrial processes without proper hazard analysis, field validation, process safety review, and approval by qualified control engineers.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:880}}">
+class Component extends DCLogic {
+  state = {
+    ctype:'PID', mode:'auto', dir:'direct',
+    Kp:2.2, Ki:0.32, Kd:1.1,
+    sp:50, manual:25, dt:0.1, outMin:0, outMax:100,
+    plant:'fopdt', K:1, tau:12, theta:2.5, zeta:0.7, wn:0.4, y0:0,
+    distOn:false, distMag:15, noiseOn:false, noiseStd:0.6, slewOn:false, slew:120,
+    running:true, speed:2, dfiltN:8, awOn:true,
+    method:'imc', learn:'Kp', windowSec:60,
+    // readouts
+    tD:'0.0', pv:0, mv:0, err:0, P:0, I:0, D:0, saturated:false, _tick:0
+  };
+
+  // ---- lifecycle ----
+  scopeRef = React.createRef();
+
+  initInstance(){
+    this.buf = {t:[],sp:[],pv:[],mv:[],err:[]};   // capped draw buffer
+    this.hist = [];                                // full history for export
+    this.S = { y:this.state.y0, y2:0, I:0, prevPv:this.state.y0, dFilt:0, prevMv:0, delay:[], simT:0, distEnd:0 };
+    this.last = { pv:this.state.y0, mv:0, err:0, P:0, I:0, D:0, sat:false };
+    this.ref = null;
+    this.resetMetrics(this.state.y0);
+    this.acc = 0; this.lastTs = null; this.lastUi = 0;
+    this._init = true;
+  }
+  resetMetrics(start){
+    this.M = { t0:this.S?this.S.simT:0, start:start, peakVal:start, peakTime:0,
+      iae:0, ise:0, itae:0, effort:0, maxPv:start, minPv:start, maxMv:0,
+      t10:null, t90:null, settle:0 };
+  }
+  componentDidMount(){
+    if(!this._init) this.initInstance();
+    this._tickfn = this._tickfn.bind(this);
+    this.timer = setInterval(this._tickfn, 33);
+  }
+  componentWillUnmount(){ if(this.timer) clearInterval(this.timer); }
+
+  // ---- helpers ----
+  clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  gauss(){
+    if(this._sp!=null){ const s=this._sp; this._sp=null; return s; }
+    let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+    const m=Math.sqrt(-2*Math.log(u)); this._sp=m*Math.sin(2*Math.PI*v); return m*Math.cos(2*Math.PI*v);
+  }
+  fmt(v,d){ if(v==null||!isFinite(v)) return '—'; return v.toFixed(d); }
+
+  // ---- simulation step ----
+  step(dt){
+    const st=this.state, S=this.S;
+    const meas = S.y + (st.noiseOn ? this.gauss()*st.noiseStd : 0);
+    const actSign = st.dir==='direct' ? 1 : -1;
+    const error = actSign*(st.sp - meas);
+    let P=0, I=S.I, D=0, out, outSat, sat=false;
+
+    if(st.mode==='manual'){
+      out = st.manual; outSat = this.clamp(out, st.outMin, st.outMax);
+      S.I = outSat; S.prevPv = meas; S.dFilt = 0; I = outSat;     // track for bumpless
+    } else {
+      const Kp=st.Kp, Ki=st.ctype==='P'?0:st.Ki, Kd=st.ctype==='PID'?st.Kd:0;
+      P = Kp*error;
+      const dMeas = (meas - S.prevPv)/dt;
+      const Tf = (Kd>0 && Kp>0) ? Kd/(Kp*st.dfiltN) : 0;
+      const a = Tf>0 ? dt/(Tf+dt) : 1;
+      S.dFilt = S.dFilt + a*((-actSign*Kd*dMeas) - S.dFilt);
+      D = S.dFilt;
+      let Ic = S.I + Ki*error*dt;
+      out = P + Ic + D; outSat = this.clamp(out, st.outMin, st.outMax);
+      if(out!==outSat){ sat=true; if(st.awOn){ Ic = S.I; out = P + Ic + D; outSat = this.clamp(out, st.outMin, st.outMax); } }
+      S.I = Ic; I = Ic; S.prevPv = meas;
+    }
+
+    // actuator slew limit
+    let mv = outSat;
+    if(st.slewOn){ const md = st.slew*dt; mv = this.clamp(mv, S.prevMv-md, S.prevMv+md); }
+    S.prevMv = mv;
+
+    // load disturbance (input side) — sustained toggle OR timed pulse
+    let dist = st.distOn ? st.distMag : 0;
+    if(S.distEnd > S.simT) dist += st.distMag;
+    const uIn = mv + dist;
+
+    this.plantStep(dt, uIn);
+
+    S.simT += dt;
+    this.record(S.simT, st.sp, meas, mv, st.sp-meas);
+    this.accMetrics(S.simT, st.sp, meas, mv, dt);
+    this.last = { pv:meas, mv, err:st.sp-meas, P, I, D, sat };
+  }
+
+  plantStep(dt,u){
+    const st=this.state, S=this.S, K=st.K;
+    const delayed=(val)=>{
+      if(st.theta<=0) return val;
+      const n=Math.max(1, Math.round(st.theta/dt));
+      if(S.delay.length!==n){ S.delay = new Array(n).fill(val); }
+      S.delay.push(val); return S.delay.shift();
+    };
+    if(st.plant==='first'){ S.y += dt*(K*u - S.y)/st.tau; }
+    else if(st.plant==='fopdt'){ const du=delayed(u); S.y += dt*(K*du - S.y)/st.tau; }
+    else if(st.plant==='integrating'){ S.y += dt*K*u*0.1; }
+    else if(st.plant==='second'){ const w=st.wn,z=st.zeta; S.y2 += dt*(K*w*w*u - 2*z*w*S.y2 - w*w*S.y); S.y += dt*S.y2; }
+    else if(st.plant==='sopdt'){ const du=delayed(u); const w=st.wn,z=st.zeta; S.y2 += dt*(K*w*w*du - 2*z*w*S.y2 - w*w*S.y); S.y += dt*S.y2; }
+  }
+
+  record(t,sp,pv,mv,err){
+    const b=this.buf; b.t.push(t); b.sp.push(sp); b.pv.push(pv); b.mv.push(mv); b.err.push(err);
+    const CAP=3000;
+    if(b.t.length>CAP){ b.t.shift(); b.sp.shift(); b.pv.shift(); b.mv.shift(); b.err.shift(); }
+    this.hist.push([t,sp,pv,mv,err]);
+    if(this.hist.length>60000) this.hist.shift();
+  }
+
+  accMetrics(t,sp,pv,mv,dt){
+    const M=this.M; const e=sp-pv, ae=Math.abs(e), rel=t-M.t0;
+    M.iae+=ae*dt; M.ise+=e*e*dt; M.itae+=rel*ae*dt; M.effort+=Math.abs(mv)*dt;
+    M.maxPv=Math.max(M.maxPv,pv); M.minPv=Math.min(M.minPv,pv); M.maxMv=Math.max(M.maxMv,mv);
+    const span=sp-M.start;
+    if(span>=0){ if(pv>M.peakVal){M.peakVal=pv;M.peakTime=rel;} }
+    else { if(pv<M.peakVal){M.peakVal=pv;M.peakTime=rel;} }
+    if(span!==0){ const f=(pv-M.start)/span; if(M.t10==null&&f>=0.1)M.t10=rel; if(M.t90==null&&f>=0.9)M.t90=rel; }
+    const band=Math.max(1e-9,0.02*Math.abs(span));
+    if(Math.abs(pv-sp)>band) M.settle=rel;
+  }
+
+  // ---- main loop (interval-driven; robust to background throttling) ----
+  _tickfn(){
+    const ts=performance.now();
+    if(this.lastTs==null) this.lastTs=ts;
+    let real=(ts-this.lastTs)/1000; this.lastTs=ts;
+    real=Math.min(real,0.5);
+    if(this.state.running){
+      this.acc += real*this.state.speed;
+      const dt=this.state.dt; let n=0;
+      while(this.acc>=dt && n<20000){ this.step(dt); this.acc-=dt; n++; }
+    }
+    this.draw();
+    if(ts-this.lastUi>100){ this.lastUi=ts; this.syncUi(); }
+  }
+  syncUi(){
+    const L=this.last;
+    this.setState({ tD:this.S.simT.toFixed(1), pv:L.pv, mv:L.mv, err:L.err, P:L.P, I:L.I, D:L.D, saturated:L.sat, _tick:this.state._tick+1 });
+  }
+
+  // ---- canvas ----
+  draw(){
+    const cv=this.scopeRef.current; if(!cv) return;
+    const dpr=window.devicePixelRatio||1;
+    const w=cv.clientWidth||700, h=cv.clientHeight||352;
+    if(cv.width!==Math.round(w*dpr)){ cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); }
+    const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle='#0c1116'; ctx.fillRect(0,0,w,h);
+    const padL=42,padR=44,padT=14,padB=24, pw=w-padL-padR, ph=h-padT-padB;
+    const st=this.state, b=this.buf;
+    const winS=st.windowSec;
+    const tEnd = b.t.length? b.t[b.t.length-1] : 0;
+    const tStart = Math.max(0, tEnd - winS);
+
+    // left axis range from sp & pv in window
+    let lo=Infinity, hi=-Infinity;
+    for(let i=0;i<b.t.length;i++){ if(b.t[i]<tStart) continue; const p=b.pv[i],s=b.sp[i]; if(p<lo)lo=p; if(p>hi)hi=p; if(s<lo)lo=s; if(s>hi)hi=s; }
+    if(!isFinite(lo)){ lo=0; hi=st.sp||100; }
+    if(hi-lo<5){ const m=(hi+lo)/2; lo=m-2.5; hi=m+2.5; }
+    const pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
+    const rMin=st.outMin, rMax=st.outMax;
+
+    const X=(t)=> padL + ((t-tStart)/winS)*pw;
+    const YL=(v)=> padT + (1-(v-lo)/(hi-lo))*ph;
+    const YR=(v)=> padT + (1-(v-rMin)/(rMax-rMin))*ph;
+
+    // grid
+    ctx.strokeStyle='#1a2531'; ctx.lineWidth=1; ctx.font="500 9px 'IBM Plex Mono',monospace";
+    ctx.textBaseline='middle';
+    for(let i=0;i<=4;i++){
+      const y=padT+(i/4)*ph; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+pw,y); ctx.stroke();
+      const lv=hi-(i/4)*(hi-lo); ctx.fillStyle='#5b6b7a'; ctx.textAlign='right'; ctx.fillText(lv.toFixed(0), padL-6, y);
+      const rv=rMax-(i/4)*(rMax-rMin); ctx.fillStyle='#2f7da3'; ctx.textAlign='left'; ctx.fillText(rv.toFixed(0), padL+pw+6, y);
+    }
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    for(let i=0;i<=6;i++){
+      const x=padL+(i/6)*pw; ctx.strokeStyle='#141d27'; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+ph); ctx.stroke();
+      const tv=tStart+(i/6)*winS; if(tEnd>0){ ctx.fillStyle='#5b6b7a'; ctx.fillText(tv.toFixed(0)+'s', x, padT+ph+6); }
+    }
+    // axis captions
+    ctx.fillStyle='#5b6b7a'; ctx.textAlign='left'; ctx.fillText('PV', padL, padT-1);
+    ctx.fillStyle='#2f7da3'; ctx.textAlign='right'; ctx.fillText('MV%', padL+pw, padT-1);
+
+    if(b.t.length<2){ return; }
+
+    const trace=(arr,Y,color,width,glow,axisClampLo,axisClampHi)=>{
+      ctx.beginPath(); let started=false;
+      for(let i=0;i<b.t.length;i++){ if(b.t[i]<tStart) continue; const x=X(b.t[i]); let y=Y(arr[i]);
+        if(y<padT)y=padT; if(y>padT+ph)y=padT+ph;
+        if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y); }
+      ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineJoin='round';
+      ctx.shadowBlur=glow; ctx.shadowColor=color; ctx.stroke(); ctx.shadowBlur=0;
+    };
+
+    // reference ghost (snapshot for before/after)
+    if(this.ref){
+      ctx.beginPath(); let st2=false;
+      for(let i=0;i<this.ref.off.length;i++){ const off=this.ref.off[i]; if(off>winS) continue;
+        const x=padL+(1-off/winS)*pw; let y=YL(this.ref.pv[i]); if(y<padT)y=padT; if(y>padT+ph)y=padT+ph;
+        if(!st2){ctx.moveTo(x,y);st2=true;} else ctx.lineTo(x,y); }
+      ctx.strokeStyle='rgba(148,163,184,.55)'; ctx.lineWidth=1.4; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    trace(b.mv, YR, '#38bdf8', 1.4, 5);         // MV right axis
+    trace(b.err, YL, '#94a3b8', 1, 0);          // error (process units, dim)
+    trace(b.sp, YL, '#f5a623', 1.8, 6);         // setpoint
+    trace(b.pv, YL, '#34d399', 1.8, 7);         // PV
+  }
+
+  // ---- auto-tune ----
+  identifyFOPDT(){
+    const st=this.state; let K=Math.abs(st.K)||0.01, tau=st.tau, theta=st.theta;
+    if(st.plant==='first'){ theta=Math.max(theta,0.5); }
+    else if(st.plant==='fopdt'){ theta=Math.max(theta,0.001); }
+    else if(st.plant==='second'||st.plant==='sopdt'){
+      const z=st.zeta,w=st.wn; tau=Math.max(0.5,(2*z)/w);
+      theta=Math.max(st.plant==='sopdt'?st.theta:0, 0.5/w);
+    }
+    else if(st.plant==='integrating'){ return {K,tau:0,theta:Math.max(theta,1),integ:true}; }
+    return {K,tau,theta:Math.max(theta,0.001),integ:false};
+  }
+  computeTune(){
+    const st=this.state, f=this.identifyFOPDT();
+    if(f.integ) return {Kp:null,Ki:null,Kd:null,Ti:null,Td:null,f,note:'Integrating process — open-loop reaction-curve rules do not apply. Tune manually or with an IMC integrator rule.'};
+    const {K,tau,theta}=f; let Kp,Ti,Td;
+    if(st.method==='zn'){ Kp=1.2*tau/(K*theta); Ti=2*theta; Td=0.5*theta; }
+    else if(st.method==='cc'){
+      const r=theta/tau;
+      Kp=(1/K)*(tau/theta)*(4/3 + r/4);
+      Ti=theta*(32+6*r)/(13+8*r);
+      Td=theta*4/(11+2*r);
+    } else {
+      const lam=Math.max(0.5*theta, 0.25*tau);
+      Kp=(2*tau+theta)/(K*(2*lam+theta)); Ti=tau+theta/2; Td=tau*theta/(2*tau+theta);
+    }
+    const ct=st.ctype;
+    const Ki = ct==='P'?0:Kp/Ti;
+    const Kd = ct==='PID'?Kp*Td:0;
+    return {Kp,Ki,Kd,Ti,Td,f,note:'Educational approximation — validate before any field use.'};
+  }
+
+  // ---- export ----
+  download(name,content,type){
+    const b=new Blob([content],{type}); const u=URL.createObjectURL(b);
+    const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(u),3000);
+  }
+  exportJSON(){
+    const st=this.state, m=this.metrics();
+    const payload={ tool:'Rekalibrasi Control Lab', generated:new Date().toISOString(),
+      disclaimer:'Education / training only. Do not apply directly to real processes without proper engineering validation.',
+      controller:{type:st.ctype,mode:st.mode,direction:st.dir,Kp:st.Kp,Ki:st.Ki,Kd:st.Kd,setpoint:st.sp,dt:st.dt,outMin:st.outMin,outMax:st.outMax,antiWindup:st.awOn},
+      plant:{model:st.plant,K:st.K,tau:st.tau,theta:st.theta,zeta:st.zeta,wn:st.wn,y0:st.y0},
+      conditions:{disturbance:st.distOn?st.distMag:0,sensorNoiseStd:st.noiseOn?st.noiseStd:0,slewLimit:st.slewOn?st.slew:null},
+      metrics:m,
+      samples:this.hist.map(r=>({time:+r[0].toFixed(3),setpoint:r[1],processVariable:+r[2].toFixed(4),controllerOutput:+r[3].toFixed(4),error:+r[4].toFixed(4)})) };
+    this.download('rekalibrasi-report.json', JSON.stringify(payload,null,2), 'application/json');
+  }
+  exportCSV(){
+    let s='time,setpoint,process_variable,controller_output,error\n';
+    for(const r of this.hist){ s+=`${r[0].toFixed(3)},${r[1]},${r[2].toFixed(5)},${r[3].toFixed(5)},${r[4].toFixed(5)}\n`; }
+    this.download('rekalibrasi-data.csv', s, 'text/csv');
+  }
+
+  // ---- derived metrics for display ----
+  metrics(){
+    const M=this.M, sp=this.state.sp, span=sp-M.start;
+    const over = span!==0 ? Math.max(0,(M.peakVal-sp)/span*100) : 0;
+    const rise = (M.t10!=null&&M.t90!=null)?(M.t90-M.t10):null;
+    const sse = sp-(this.last?this.last.pv:M.start);
+    return { overshoot:over, riseTime:rise, peakTime:M.peakTime, settlingTime:M.settle,
+      steadyStateError:sse, iae:M.iae, ise:M.ise, itae:M.itae, controlEffort:M.effort,
+      maxPV:M.maxPv, minPV:M.minPv, maxMV:M.maxMv };
+  }
+
+  // ---- handlers ----
+  setNum(k){ return (e)=>{ const v=parseFloat(e.target.value); this.setState({[k]:v}); if(k==='sp'){ this.resetMetrics(this.S.y); } }; }
+  buildHandlers(){
+    const set=(o)=>this.setState(o);
+    const keys=['Kp','Ki','Kd','sp','manual','dt','outMin','outMax','K','tau','theta','zeta','wn','y0','distMag','noiseStd','slew'];
+    this.h={}; keys.forEach(k=>this.h[k]=this.setNum(k));
+    this.on={
+      typeP:()=>set({ctype:'P'}), typePI:()=>set({ctype:'PI'}), typePID:()=>set({ctype:'PID'}),
+      modeMan:()=>set({mode:'manual'}), modeAuto:()=>set({mode:'auto'}),
+      dirDir:()=>set({dir:'direct'}), dirRev:()=>set({dir:'reverse'}),
+      plant:(e)=>set({plant:e.target.value}),
+      method:(e)=>set({method:e.target.value}),
+      learn:(e)=>set({learn:e.target.value}),
+      speed:(e)=>set({speed:parseFloat(e.target.value)}),
+      window:(e)=>set({windowSec:parseInt(e.target.value)}),
+      run:()=>set({running:!this.state.running}),
+      reset:()=>{ const y=this.state.y0; this.buf={t:[],sp:[],pv:[],mv:[],err:[]}; this.hist=[];
+        this.S={y, y2:0, I:0, prevPv:y, dFilt:0, prevMv:0, delay:[], simT:0, distEnd:0}; this.last={pv:y,mv:0,err:0,P:0,I:0,D:0,sat:false};
+        this.resetMetrics(y); this.acc=0; this.setState({tD:'0.0',pv:y,mv:0,err:0,P:0,I:0,D:0,saturated:false}); },
+      step:()=>{ this.step(this.state.dt); this.draw(); this.syncUi(); },
+      capRef:()=>{ const b=this.buf; const tEnd=b.t.length?b.t[b.t.length-1]:0; this.ref={off:b.t.map(t=>tEnd-t), pv:b.pv.slice()}; this.forceUpdate(); },
+      clrRef:()=>{ this.ref=null; this.forceUpdate(); },
+      awToggle:()=>set({awOn:!this.state.awOn}),
+      distToggle:()=>set({distOn:!this.state.distOn}),
+      noiseToggle:()=>set({noiseOn:!this.state.noiseOn}),
+      slewToggle:()=>set({slewOn:!this.state.slewOn}),
+      distPulse:()=>{ this.S.distEnd=this.S.simT + 4; },
+      applyTune:()=>{ const t=this.computeTune(); if(t.Kp==null) return; this.setState({Kp:+t.Kp.toFixed(3), Ki:+t.Ki.toFixed(4), Kd:+t.Kd.toFixed(4)}); },
+      expJSON:()=>this.exportJSON(), expCSV:()=>this.exportCSV(),
+      spSubmit:(e)=>{ e.preventDefault(); this.resetMetrics(this.S.y); }
+    };
+  }
+
+  segSty(active){
+    const base='flex:1;padding:7px 0;border:none;border-radius:6px;cursor:pointer;font:600 11px/1 \'IBM Plex Mono\',monospace;letter-spacing:.04em;transition:background .12s,color .12s;';
+    return base + (active ? 'background:#1b1a17;color:#fff;' : 'background:transparent;color:#7c766a;');
+  }
+  toggleSty(on){
+    const base='padding:5px 13px;border-radius:6px;border:1px solid;cursor:pointer;font:600 10px/1 \'IBM Plex Mono\',monospace;letter-spacing:.06em;transition:all .12s;';
+    return base + (on ? 'background:#1b1a17;border-color:#1b1a17;color:#fff;' : 'background:#f1ede3;border-color:#e3ddd0;color:#9a9486;');
+  }
+
+  renderVals(){
+    if(!this._init) this.initInstance();
+    if(!this.on) this.buildHandlers();
+    const s=this.state, L=this.last||{pv:0,mv:0,err:0,P:0,I:0,D:0,sat:false};
+    const m=this.metrics();
+    const t=this.computeTune();
+    const fmt=this.fmt;
+
+    const eqs={ first:'dy/dt = (K·u − y)/τ', fopdt:'first order with transport delay θ',
+      second:"ÿ + 2ζωnẏ + ωn²y = Kωn²u", sopdt:'second order with transport delay θ',
+      integrating:'dy/dt = K·u  (no self-regulation)' };
+
+    const learnMap={
+      Kp:['Proportional gain (Kp)','Acts on the present error. Raising Kp speeds up the response and shrinks steady-state error, but too much causes overshoot and oscillation. It is the backbone of almost every loop.'],
+      Ki:['Integral gain (Ki)','Acts on accumulated past error. It drives steady-state error to zero, but too much integral action slows the loop and causes overshoot and windup. Increase it to remove offset.'],
+      Kd:['Derivative gain (Kd)','Acts on the predicted future error (rate of change). It adds damping and reduces overshoot, but amplifies sensor noise — always pair it with a derivative filter. Use sparingly.'],
+      overshoot:['Overshoot','How far PV swings past the setpoint on the first peak, as a percent of the step. High Kp or Ki increases it; Kd and a slower setpoint reduce it. <10% is usually a good target.'],
+      settling:['Settling time','Time for PV to stay within a tolerance band (here ±2%) around the setpoint. A well-tuned loop settles quickly without lingering oscillation.'],
+      sserror:['Steady-state error','The residual gap between setpoint and PV once everything settles. Pure proportional control leaves offset; adding integral action removes it.'],
+      windup:['Integral windup','When the output saturates, the integrator keeps accumulating and the loop overshoots badly on recovery. Anti-windup freezes or back-calculates the integral while saturated — toggle it to see the effect.'],
+      noise:['Derivative noise','Derivative action differentiates the measurement, so sensor noise gets amplified into the output. Enable sensor noise with high Kd to see the valve chatter, then add filtering.'],
+      deadtime:['Dead time (θ)','Pure transport delay before the process responds. It is the single hardest dynamic to control — it limits how aggressive your gains can be. The θ/τ ratio drives every tuning rule.']
+    };
+    const lt=learnMap[s.learn]||learnMap.Kp;
+
+    const fTxt = t.f.integ ? `K=${fmt(t.f.K,2)}, integrating` : `K=${fmt(t.f.K,2)}, τ=${fmt(t.f.tau,1)}s, θ=${fmt(t.f.theta,1)}s`;
+    const overTone = m.overshoot<=10?'#15803d':(m.overshoot<=25?'#1b1a17':'#c2410c');
+    const sseTone = Math.abs(m.steadyStateError)<=1?'#15803d':'#c2410c';
+
+    return {
+      // params
+      Kp:s.Kp, Ki:s.Ki, Kd:s.Kd, sp:s.sp, manual:s.manual, dt:s.dt, outMin:s.outMin, outMax:s.outMax,
+      K:s.K, tau:s.tau, theta:s.theta, zeta:s.zeta, wn:s.wn, y0:s.y0,
+      distMag:s.distMag, noiseStd:s.noiseStd, slew:s.slew,
+      KpD:fmt(s.Kp,2), KiD:fmt(s.Ki,3), KdD:fmt(s.Kd,2), spD:fmt(s.sp,1), manualD:fmt(s.manual,1),
+      dtD:fmt(s.dt,2), outMinD:fmt(s.outMin,0), outMaxD:fmt(s.outMax,0),
+      KD:fmt(s.K,2),
+      tauD:fmt(s.tau,1), thetaD:fmt(s.theta,1), zetaD:fmt(s.zeta,2), wnD:fmt(s.wn,2), y0D:fmt(s.y0,0),
+      distMagD:fmt(s.distMag,0), noiseStdD:fmt(s.noiseStd,1), slewD:fmt(s.slew,0),
+      // flags
+      isPI:(s.ctype==='PI'||s.ctype==='PID'), isPID:(s.ctype==='PID'), isManual:(s.mode==='manual'),
+      showTau:(s.plant==='first'||s.plant==='fopdt'), showTheta:(s.plant==='fopdt'||s.plant==='sopdt'),
+      showZeta:(s.plant==='second'||s.plant==='sopdt'), showWn:(s.plant==='second'||s.plant==='sopdt'),
+      plant:s.plant, plantEq:eqs[s.plant], method:s.method, learn:s.learn, speed:String(s.speed), windowSec:s.windowSec,
+      hasRef:!!this.ref, saturated:L.sat,
+      // readouts
+      tD:s.tD, pvD:fmt(L.pv,2), mvD:fmt(L.mv,1), errD:fmt(L.err,2),
+      pTermD:fmt(L.P,2), iTermD:fmt(L.I,2), dTermD:fmt(L.D,2),
+      // status
+      statusText: s.mode==='manual'?'MANUAL': (s.running?'RUNNING':'PAUSED'),
+      statusDot: s.mode==='manual'?'#ea8a0c':(s.running?'#34d399':'#94a3b8'),
+      statusAnim: (s.running&&s.mode!=='manual')?'animation:recpulse 1.4s ease-in-out infinite;':'',
+      runTxt: s.running?'⏸ PAUSE':'▶ START',
+      awTxt: s.awOn?'ON':'OFF', distTxt:s.distOn?'ON':'OFF', noiseTxt:s.noiseOn?'ON':'OFF', slewTxt:s.slewOn?'ON':'OFF',
+      // metrics
+      mOver:fmt(m.overshoot,1), mRise:fmt(m.riseTime,1), mPeak:fmt(m.peakTime,1), mSettle:fmt(m.settlingTime,1),
+      mSSE:fmt(m.steadyStateError,2), mEffort:fmt(m.controlEffort,0), mIAE:fmt(m.iae,1), mISE:fmt(m.ise,1),
+      mITAE:fmt(m.itae,0), mMaxPv:fmt(m.maxPV,1), tOver:overTone, tSSE:sseTone,
+      // tune
+      tuneKp: t.Kp==null?'—':fmt(t.Kp,2), tuneKi: t.Ki==null?'—':fmt(t.Ki,3), tuneKd: t.Kd==null?'—':fmt(t.Kd,2),
+      fopdtTxt:fTxt, tuneNote:t.note,
+      sampleCount:this.hist?this.hist.length:0,
+      // learn
+      learnTitle:lt[0], learnBody:lt[1],
+      // styles
+      sty:{
+        typeP:this.segSty(s.ctype==='P'), typePI:this.segSty(s.ctype==='PI'), typePID:this.segSty(s.ctype==='PID'),
+        modeMan:this.segSty(s.mode==='manual'), modeAuto:this.segSty(s.mode==='auto'),
+        dirDir:this.segSty(s.dir==='direct'), dirRev:this.segSty(s.dir==='reverse'),
+        aw:this.toggleSty(s.awOn), dist:this.toggleSty(s.distOn), noise:this.toggleSty(s.noiseOn), slew:this.toggleSty(s.slewOn),
+        run: 'display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font:600 11.5px/1 \'IBM Plex Mono\',monospace;letter-spacing:.05em;cursor:pointer;'+(s.running?'background:#1b1a17;color:#fff;':'background:#ea8a0c;color:#fff;')
+      },
+      // refs / handlers
+      scopeRef:this.scopeRef, h:this.h, on:this.on
+    };
+  }
+}
+</script>
+</body>
+</html>
