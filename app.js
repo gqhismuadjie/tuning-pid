@@ -157,14 +157,39 @@
     if (ts - lastUi > 100) { lastUi = ts; syncReadouts(); }
   }
 
+  // ---------------- theme ----------------
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+  function setThemeLabel() {
+    if (el.themeBtn) el.themeBtn.textContent = currentTheme() === 'light' ? '☾ DARK' : '☀ LIGHT';
+  }
+  function toggleTheme() {
+    var next = currentTheme() === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('rkl-theme', next); } catch (e) { /* ignore */ }
+    setThemeLabel();
+    draw(); // re-render the scope with the theme-matched palette
+  }
+  // Scope (canvas) palette per theme — canvas colors aren't reachable by CSS.
+  function scopePalette() {
+    if (currentTheme() === 'light') {
+      return { bg: '#f7f9fb', grid: '#d4dde6', gridV: '#e3e9ef', axisL: '#5b6b7a', axisR: '#0e7490',
+        sp: '#d97706', pv: '#059669', mv: '#0e7490', err: '#94a3b8', ref: 'rgba(100,116,139,.5)', glow: 0 };
+    }
+    return { bg: '#06090e', grid: '#16323c', gridV: '#0f2129', axisL: '#6b8494', axisR: '#1f93b0',
+      sp: '#f5a623', pv: '#34d399', mv: '#22d3ee', err: '#7c8a9c', ref: 'rgba(148,163,184,.55)', glow: 1 };
+  }
+
   // ---------------- canvas ----------------
   function draw() {
     var cv = el.scope; if (!cv) return;
+    var PAL = scopePalette();
     var dpr = window.devicePixelRatio || 1;
     var w = cv.clientWidth || 700, h = cv.clientHeight || 352;
     if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
     var ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = PAL.bg; ctx.fillRect(0, 0, w, h);
     var padL = 42, padR = 44, padT = 14, padB = 24, pw = w - padL - padR, ph = h - padT - padB;
     var st = state, b = buf;
     var winS = st.windowSec;
@@ -182,20 +207,20 @@
     var YL = function (v) { return padT + (1 - (v - lo) / (hi - lo)) * ph; };
     var YR = function (v) { return padT + (1 - (v - rMin) / (rMax - rMin)) * ph; };
 
-    ctx.strokeStyle = '#16323c'; ctx.lineWidth = 1; ctx.font = "500 9px 'IBM Plex Mono',monospace";
+    ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1; ctx.font = "500 9px 'IBM Plex Mono',monospace";
     ctx.textBaseline = 'middle';
     for (var g = 0; g <= 4; g++) {
       var y = padT + (g / 4) * ph; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + pw, y); ctx.stroke();
-      var lv = hi - (g / 4) * (hi - lo); ctx.fillStyle = '#6b8494'; ctx.textAlign = 'right'; ctx.fillText(lv.toFixed(0), padL - 6, y);
-      var rv = rMax - (g / 4) * (rMax - rMin); ctx.fillStyle = '#1f93b0'; ctx.textAlign = 'left'; ctx.fillText(rv.toFixed(0), padL + pw + 6, y);
+      var lv = hi - (g / 4) * (hi - lo); ctx.fillStyle = PAL.axisL; ctx.textAlign = 'right'; ctx.fillText(lv.toFixed(0), padL - 6, y);
+      var rv = rMax - (g / 4) * (rMax - rMin); ctx.fillStyle = PAL.axisR; ctx.textAlign = 'left'; ctx.fillText(rv.toFixed(0), padL + pw + 6, y);
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (var gx = 0; gx <= 6; gx++) {
-      var x = padL + (gx / 6) * pw; ctx.strokeStyle = '#0f2129'; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ph); ctx.stroke();
-      var tv = tStart + (gx / 6) * winS; if (tEnd > 0) { ctx.fillStyle = '#6b8494'; ctx.fillText(tv.toFixed(0) + 's', x, padT + ph + 6); }
+      var x = padL + (gx / 6) * pw; ctx.strokeStyle = PAL.gridV; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ph); ctx.stroke();
+      var tv = tStart + (gx / 6) * winS; if (tEnd > 0) { ctx.fillStyle = PAL.axisL; ctx.fillText(tv.toFixed(0) + 's', x, padT + ph + 6); }
     }
-    ctx.fillStyle = '#6b8494'; ctx.textAlign = 'left'; ctx.fillText('PV', padL, padT - 1);
-    ctx.fillStyle = '#1f93b0'; ctx.textAlign = 'right'; ctx.fillText('MV%', padL + pw, padT - 1);
+    ctx.fillStyle = PAL.axisL; ctx.textAlign = 'left'; ctx.fillText('PV', padL, padT - 1);
+    ctx.fillStyle = PAL.axisR; ctx.textAlign = 'right'; ctx.fillText('MV%', padL + pw, padT - 1);
 
     if (b.t.length < 2) { return; }
 
@@ -217,13 +242,13 @@
         var rx = padL + (1 - off / winS) * pw; var ry = YL(ref.pv[r]); if (ry < padT) ry = padT; if (ry > padT + ph) ry = padT + ph;
         if (!st2) { ctx.moveTo(rx, ry); st2 = true; } else ctx.lineTo(rx, ry);
       }
-      ctx.strokeStyle = 'rgba(148,163,184,.55)'; ctx.lineWidth = 1.4; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = PAL.ref; ctx.lineWidth = 1.4; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
     }
 
-    trace(b.mv, YR, '#22d3ee', 1.4, 5);
-    trace(b.err, YL, '#7c8a9c', 1, 0);
-    trace(b.sp, YL, '#f5a623', 1.8, 6);
-    trace(b.pv, YL, '#34d399', 1.8, 7);
+    trace(b.mv, YR, PAL.mv, 1.4, 5 * PAL.glow);
+    trace(b.err, YL, PAL.err, 1, 0);
+    trace(b.sp, YL, PAL.sp, 1.8, 6 * PAL.glow);
+    trace(b.pv, YL, PAL.pv, 1.8, 7 * PAL.glow);
   }
 
   // ---------------- auto-tune ----------------
@@ -477,8 +502,8 @@
       var ref2 = metricRefs[d.key];
       ref2.txt.nodeValue = fmt(m[d.key], d.dec);
       var tone = d.tone;
-      if (tone === 'over') tone = m.overshoot <= 10 ? '#34d399' : (m.overshoot <= 25 ? '' : '#f5a623');
-      else if (tone === 'sse') tone = Math.abs(m.steadyStateError) <= 1 ? '#34d399' : '#f87171';
+      if (tone === 'over') tone = m.overshoot <= 10 ? 'var(--green)' : (m.overshoot <= 25 ? '' : 'var(--amber)');
+      else if (tone === 'sse') tone = Math.abs(m.steadyStateError) <= 1 ? 'var(--green)' : 'var(--red)';
       ref2.val.style.color = tone;
     });
   }
@@ -488,7 +513,7 @@
     ['scope', 'plantEq', 'plantSel', 'methodSel', 'learnSel', 'speedSel', 'windowSel', 'winSec',
       'statusText', 'statusDot', 'runBtn', 'learnTitle', 'learnBody', 'tuneKp', 'tuneKi', 'tuneKd',
       'fopdtTxt', 'tuneNote', 'spNum', 'tD', 'lgSP', 'lgPV', 'lgMV', 'lgERR', 'pTerm', 'iTerm', 'dTerm',
-      'satBadge', 'sampleCount', 'armHint'].forEach(function (id) { el[id] = $(id); });
+      'satBadge', 'sampleCount', 'armHint', 'themeBtn'].forEach(function (id) { el[id] = $(id); });
 
     // sliders
     makeSlider({ key: 'sp', label: 'Setpoint', unit: 'PV', hint: 'Target value the controller drives the process toward. Changing it triggers a step test.', min: 0, max: 100, step: 0.5, dec: 1, onChange: function () { resetMetrics(S.y); el.spNum.value = state.sp; } }, $('slot-sp'));
@@ -567,6 +592,10 @@
     });
     $('expJSON').addEventListener('click', exportJSON);
     $('expCSV').addEventListener('click', exportCSV);
+
+    // theme toggle
+    el.themeBtn.addEventListener('click', toggleTheme);
+    setThemeLabel();
 
     syncControls();
     syncReadouts();

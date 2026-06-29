@@ -23,6 +23,10 @@ time, sensor noise, actuator saturation, and auto-tuning rules, all in real time
 - **Auto-tuning lab** — Ziegler–Nichols (open loop), Cohen–Coon, and IMC (lambda)
   rules from an identified FOPDT model.
 - **Export** — full run history + configuration + metrics as JSON or CSV.
+- **Dark / light themes** — a control-room HMI dark theme and a light instrument
+  theme, toggled from the header and remembered across visits (defaults to your
+  OS preference). Readable typography: sans-serif labels with monospace digit
+  readouts.
 
 > ⚠️ **Safety** — This simulator is for education, conceptual design, research, and
 > training only. Generated tuning parameters must **not** be applied directly to real
