@@ -23,7 +23,7 @@
 
   // simulation working vars
   var S, last, buf, hist, M, ref = null, _sp = null;
-  var acc = 0, lastTs = null, lastUi = 0;
+  var acc = 0, lastTs = null, lastUi = 0, dirty = true, rafId = null;
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function fmt(v, d) { if (v == null || !isFinite(v)) return '—'; return v.toFixed(d); }
@@ -143,8 +143,12 @@
   }
 
   // ---------------- main loop ----------------
-  function tickfn() {
-    var ts = performance.now();
+  // requestAnimationFrame-driven: caps redraws at the display refresh, auto-pauses
+  // when the tab is hidden (rAF stops), and does no work while paused unless a
+  // control changed (dirty) — so an idle tuner costs ~0 CPU. Physics still advances
+  // on a fixed-step accumulator for determinism.
+  function frame(ts) {
+    rafId = requestAnimationFrame(frame);
     if (lastTs == null) lastTs = ts;
     var real = (ts - lastTs) / 1000; lastTs = ts;
     real = Math.min(real, 0.5);
@@ -152,9 +156,12 @@
       acc += real * state.speed;
       var dt = state.dt, n = 0;
       while (acc >= dt && n < 20000) { step(dt); acc -= dt; n++; }
+      draw();
+      if (ts - lastUi > 100) { lastUi = ts; syncReadouts(); }
+    } else if (dirty) {
+      draw(); syncReadouts();
     }
-    draw();
-    if (ts - lastUi > 100) { lastUi = ts; syncReadouts(); }
+    dirty = false;
   }
 
   // ---------------- theme ----------------
@@ -357,6 +364,7 @@
       var v = parseFloat(e.target.value);
       state[cfg.key] = v;
       valTxt.nodeValue = fmt(v, cfg.dec);
+      dirty = true;
       if (cfg.onChange) cfg.onChange(v);
     });
     wrap.appendChild(row); wrap.appendChild(input);
@@ -474,6 +482,7 @@
       sl.disp.nodeValue = fmt(state[k], sl.dec);
     }
     el.spNum.value = s.sp;
+    dirty = true;
   }
 
   function setToggle(key, on, labels) {
@@ -554,7 +563,7 @@
     el.methodSel.addEventListener('change', function (e) { state.method = e.target.value; syncControls(); });
     el.learnSel.addEventListener('change', function (e) { state.learn = e.target.value; syncControls(); });
     el.speedSel.addEventListener('change', function (e) { state.speed = parseFloat(e.target.value); });
-    el.windowSel.addEventListener('change', function (e) { state.windowSec = parseInt(e.target.value, 10); el.winSec.textContent = state.windowSec; });
+    el.windowSel.addEventListener('change', function (e) { state.windowSec = parseInt(e.target.value, 10); el.winSec.textContent = state.windowSec; dirty = true; });
 
     // go-to form
     el.spNum.value = state.sp;
@@ -597,9 +606,28 @@
     el.themeBtn.addEventListener('click', toggleTheme);
     setThemeLabel();
 
+    // keyboard shortcuts for fast tuning iteration (ignored while typing in a field)
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      var k = e.key.toLowerCase();
+      if (e.key === ' ' || k === 'k') {            // space / k — start · pause
+        e.preventDefault();
+        if (!state.started) { doReset(); state.started = true; state.running = true; }
+        else { state.running = !state.running; }
+        syncControls();
+      } else if (k === 'r') {                       // r — reset to READY
+        doReset(); state.started = false; state.running = false; syncControls();
+      } else if (k === 's') {                        // s — single step
+        if (!state.started) { doReset(); state.started = true; }
+        step(state.dt); dirty = true; syncControls();
+      }
+    });
+
     syncControls();
     syncReadouts();
-    setInterval(tickfn, 33);
+    requestAnimationFrame(frame);
   }
 
   initInstance();

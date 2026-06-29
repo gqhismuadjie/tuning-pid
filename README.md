@@ -1,14 +1,14 @@
-# Rekalibrasi Control Lab
+# Rekalibrasi Control Lab — PID Tuning Simulator
 
-Two related, real-time, browser-based process-control simulators that share one
-control-room HMI look:
+A real-time, browser-based **PID controller tuning simulator** for process-control
+education and engineering training. Tune `Kp / Ki / Kd` against configurable plant
+models and watch the live strip chart respond — overshoot, settling, windup, dead
+time, sensor noise, actuator saturation, and auto-tuning rules, all in real time.
+Dependency-free single static page.
 
-| App | Path | What it is |
-| --- | --- | --- |
-| **tuning-pid** | `/` (root) | The focused **PID tuning simulator** — tune `Kp/Ki/Kd` against configurable plant models and watch the live strip chart. |
-| **control-sim** | `/control-sim/` | The **closed-loop process simulator** — the same loop rebuilt from industrial instrument blocks (measuring element → transmitter → controller → valve → process) with an engineering-unit signal chain (EU ↔ % ↔ 4–20 mA). |
-
-The two pages cross-link from their headers. Both are dependency-free static pages.
+> A companion **closed-loop process simulator** (Control-Sim) — the same loop rebuilt
+> from industrial instrument blocks with an engineering-unit signal chain — is
+> developed in its own separate repository.
 
 ![Rekalibrasi Control Lab](design/screenshots/lab2.png)
 
@@ -32,6 +32,13 @@ The two pages cross-link from their headers. Both are dependency-free static pag
   theme, toggled from the header and remembered across visits (defaults to your
   OS preference). Readable typography: sans-serif labels with monospace digit
   readouts.
+
+**Keyboard shortcuts:** `Space` / `K` — start · pause · resume · `R` — reset to READY ·
+`S` — single step. (Ignored while typing in a field.)
+
+The render loop is `requestAnimationFrame`-driven, so it caps redraws at the display
+refresh rate, fully pauses when the browser tab is hidden, and does no work while the
+sim is paused and idle.
 
 > ⚠️ **Safety** — This simulator is for education, conceptual design, research, and
 > training only. Generated tuning parameters must **not** be applied directly to real
@@ -74,17 +81,16 @@ Drag-and-drop or point any of these at the repository root:
 - **Netlify / Vercel / Cloudflare Pages** — no build command, publish directory `/`.
 - **Any web server / CDN / S3 bucket** — upload `index.html` and `app.js`.
 
+The GitHub Pages workflow publishes only the app files (`index.html`, `app.js`,
+`.nojekyll`) — not the repo's development assets (`design/`, `.claude/`) — so the live
+site stays lean.
+
 ## Project layout
 
 ```
-index.html                     tuning-pid — markup, styles, layout
-app.js                         tuning-pid — simulation + UI binding (no framework, no CDN)
-control-sim/
-  index.html                   control-sim — markup, styles, layout
-  app.js                       control-sim — UI/state binding, chart, metrics, export
-  engine.js                    control-sim — modular closed-loop block engine
-                               (Process → Sensor → Transmitter → Controller → Valve)
-.github/workflows/deploy.yml   GitHub Pages deployment (serves both apps)
+index.html                     App — markup, styles, layout (control-room HMI)
+app.js                         Simulation + UI binding (no framework, no CDN)
+.github/workflows/deploy.yml   GitHub Pages deployment (publishes app files only)
 design/                        Original Design-Component (DC) source this was ported from
   Rekalibrasi Control Lab.dc.html
   ParamSlider.dc.html
@@ -92,21 +98,6 @@ design/                        Original Design-Component (DC) source this was po
   support.js
   screenshots/
 ```
-
-## control-sim: the block engine
-
-`control-sim/engine.js` runs the loop as discrete industrial components, each a
-block with its own state and `step(dt, inputs, params)`:
-
-```
-Process → Sensor(lag+noise) → Transmitter(EU→%/mA) → Controller(discrete PID,
-sample-and-hold @ scan time) → Valve(slew) → back to Process
-```
-
-Signals travel in real engineering units (PV in EU → transmitter % of range →
-4–20 mA → controller output % → valve travel % → 4–20 mA), shown live in the
-**Signal Chain** panel. It is the foundation for later phases (valve stiction,
-sensor faults, cascade, feedforward, and a P&ID block-diagram view).
 
 ## How it was built
 
