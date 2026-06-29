@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:4px;padding:9px 11px;background:#faf8f3;border:1px solid #ece7da;border-radius:8px;min-width:0;">
+  <span title="{{ hint }}" style="font:600 9px/1.1 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#8a8478;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;">{{ label }}</span>
+  <span style="font:600 17px/1 'IBM Plex Mono',monospace;color:{{ tone }};white-space:nowrap;">{{ value }}<span style="font-size:10.5px;color:#b0aa9b;font-weight:500;margin-left:3px;">{{ unit }}</span></span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:150,&quot;height&quot;:58}}"></script>
+</body>
+</html>
