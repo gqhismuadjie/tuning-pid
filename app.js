@@ -164,7 +164,7 @@
     var w = cv.clientWidth || 700, h = cv.clientHeight || 352;
     if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
     var ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#0c1116'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#06090e'; ctx.fillRect(0, 0, w, h);
     var padL = 42, padR = 44, padT = 14, padB = 24, pw = w - padL - padR, ph = h - padT - padB;
     var st = state, b = buf;
     var winS = st.windowSec;
@@ -182,20 +182,20 @@
     var YL = function (v) { return padT + (1 - (v - lo) / (hi - lo)) * ph; };
     var YR = function (v) { return padT + (1 - (v - rMin) / (rMax - rMin)) * ph; };
 
-    ctx.strokeStyle = '#1a2531'; ctx.lineWidth = 1; ctx.font = "500 9px 'IBM Plex Mono',monospace";
+    ctx.strokeStyle = '#16323c'; ctx.lineWidth = 1; ctx.font = "500 9px 'IBM Plex Mono',monospace";
     ctx.textBaseline = 'middle';
     for (var g = 0; g <= 4; g++) {
       var y = padT + (g / 4) * ph; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + pw, y); ctx.stroke();
-      var lv = hi - (g / 4) * (hi - lo); ctx.fillStyle = '#5b6b7a'; ctx.textAlign = 'right'; ctx.fillText(lv.toFixed(0), padL - 6, y);
-      var rv = rMax - (g / 4) * (rMax - rMin); ctx.fillStyle = '#2f7da3'; ctx.textAlign = 'left'; ctx.fillText(rv.toFixed(0), padL + pw + 6, y);
+      var lv = hi - (g / 4) * (hi - lo); ctx.fillStyle = '#6b8494'; ctx.textAlign = 'right'; ctx.fillText(lv.toFixed(0), padL - 6, y);
+      var rv = rMax - (g / 4) * (rMax - rMin); ctx.fillStyle = '#1f93b0'; ctx.textAlign = 'left'; ctx.fillText(rv.toFixed(0), padL + pw + 6, y);
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (var gx = 0; gx <= 6; gx++) {
-      var x = padL + (gx / 6) * pw; ctx.strokeStyle = '#141d27'; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ph); ctx.stroke();
-      var tv = tStart + (gx / 6) * winS; if (tEnd > 0) { ctx.fillStyle = '#5b6b7a'; ctx.fillText(tv.toFixed(0) + 's', x, padT + ph + 6); }
+      var x = padL + (gx / 6) * pw; ctx.strokeStyle = '#0f2129'; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ph); ctx.stroke();
+      var tv = tStart + (gx / 6) * winS; if (tEnd > 0) { ctx.fillStyle = '#6b8494'; ctx.fillText(tv.toFixed(0) + 's', x, padT + ph + 6); }
     }
-    ctx.fillStyle = '#5b6b7a'; ctx.textAlign = 'left'; ctx.fillText('PV', padL, padT - 1);
-    ctx.fillStyle = '#2f7da3'; ctx.textAlign = 'right'; ctx.fillText('MV%', padL + pw, padT - 1);
+    ctx.fillStyle = '#6b8494'; ctx.textAlign = 'left'; ctx.fillText('PV', padL, padT - 1);
+    ctx.fillStyle = '#1f93b0'; ctx.textAlign = 'right'; ctx.fillText('MV%', padL + pw, padT - 1);
 
     if (b.t.length < 2) { return; }
 
@@ -220,8 +220,8 @@
       ctx.strokeStyle = 'rgba(148,163,184,.55)'; ctx.lineWidth = 1.4; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
     }
 
-    trace(b.mv, YR, '#38bdf8', 1.4, 5);
-    trace(b.err, YL, '#94a3b8', 1, 0);
+    trace(b.mv, YR, '#22d3ee', 1.4, 5);
+    trace(b.err, YL, '#7c8a9c', 1, 0);
     trace(b.sp, YL, '#f5a623', 1.8, 6);
     trace(b.pv, YL, '#34d399', 1.8, 7);
   }
@@ -342,14 +342,14 @@
 
   var metricDefs = [
     { key: 'overshoot', label: 'Overshoot', unit: '%', dec: 1, tone: 'over' },
-    { key: 'riseTime', label: 'Rise time', unit: 's', dec: 1, tone: '#1b1a17' },
-    { key: 'peakTime', label: 'Peak time', unit: 's', dec: 1, tone: '#1b1a17' },
-    { key: 'settlingTime', label: 'Settling 2%', unit: 's', dec: 1, tone: '#1b1a17' },
+    { key: 'riseTime', label: 'Rise time', unit: 's', dec: 1, tone: '' },
+    { key: 'peakTime', label: 'Peak time', unit: 's', dec: 1, tone: '' },
+    { key: 'settlingTime', label: 'Settling 2%', unit: 's', dec: 1, tone: '' },
     { key: 'steadyStateError', label: 'SS error', unit: 'PV', dec: 2, tone: 'sse' },
-    { key: 'controlEffort', label: 'Ctrl effort', unit: '', dec: 0, tone: '#1b1a17' },
-    { key: 'iae', label: 'IAE', unit: '', dec: 1, tone: '#1b1a17' },
-    { key: 'ise', label: 'ISE', unit: '', dec: 1, tone: '#1b1a17' },
-    { key: 'itae', label: 'ITAE', unit: '', dec: 0, tone: '#1b1a17' },
+    { key: 'controlEffort', label: 'Ctrl effort', unit: '', dec: 0, tone: '' },
+    { key: 'iae', label: 'IAE', unit: '', dec: 1, tone: '' },
+    { key: 'ise', label: 'ISE', unit: '', dec: 1, tone: '' },
+    { key: 'itae', label: 'ITAE', unit: '', dec: 0, tone: '' },
     { key: 'maxPV', label: 'Max PV', unit: '', dec: 1, tone: '#1b1a17' }
   ];
   var metricRefs = {};
@@ -413,9 +413,20 @@
     var statusDot = s.mode === 'manual' ? '#ea8a0c' : (armed ? '#ea8a0c' : (s.running ? '#34d399' : '#94a3b8'));
     el.statusText.textContent = statusText;
     el.statusDot.style.background = statusDot;
+    el.statusDot.style.boxShadow = '0 0 8px ' + statusDot + ', 0 0 2px ' + statusDot;
     el.statusDot.style.animation = (s.running && s.started && s.mode !== 'manual') ? 'recpulse 1.4s ease-in-out infinite' : '';
     el.runBtn.textContent = armed ? '▶ START' : (s.running ? '⏸ PAUSE' : '▶ RESUME');
-    el.runBtn.style.background = s.running ? '#1b1a17' : '#ea8a0c';
+    if (s.running) { // PAUSE — amber caution
+      el.runBtn.style.background = 'linear-gradient(180deg,#caa53e,#9a7a1c)';
+      el.runBtn.style.color = '#1c1605';
+      el.runBtn.style.borderColor = '#5a4514';
+      el.runBtn.style.boxShadow = '0 0 12px rgba(245,166,35,.35), inset 0 1px 0 rgba(255,255,255,.3)';
+    } else { // START / RESUME — green go
+      el.runBtn.style.background = 'linear-gradient(180deg,#2fc98a,#179a64)';
+      el.runBtn.style.color = '#04231a';
+      el.runBtn.style.borderColor = '#0c5238';
+      el.runBtn.style.boxShadow = '0 0 12px rgba(52,211,153,.35), inset 0 1px 0 rgba(255,255,255,.3)';
+    }
     if (el.armHint) el.armHint.style.display = armed ? '' : 'none';
 
     // learn text
@@ -466,8 +477,8 @@
       var ref2 = metricRefs[d.key];
       ref2.txt.nodeValue = fmt(m[d.key], d.dec);
       var tone = d.tone;
-      if (tone === 'over') tone = m.overshoot <= 10 ? '#15803d' : (m.overshoot <= 25 ? '#1b1a17' : '#c2410c');
-      else if (tone === 'sse') tone = Math.abs(m.steadyStateError) <= 1 ? '#15803d' : '#c2410c';
+      if (tone === 'over') tone = m.overshoot <= 10 ? '#34d399' : (m.overshoot <= 25 ? '' : '#f5a623');
+      else if (tone === 'sse') tone = Math.abs(m.steadyStateError) <= 1 ? '#34d399' : '#f87171';
       ref2.val.style.color = tone;
     });
   }
