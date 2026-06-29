@@ -17,7 +17,7 @@
     sp: 50, manual: 25, dt: 0.1, outMin: 0, outMax: 100,
     plant: 'fopdt', K: 1, tau: 12, theta: 2.5, zeta: 0.7, wn: 0.4, y0: 0,
     distOn: false, distMag: 15, noiseOn: false, noiseStd: 0.6, slewOn: false, slew: 120,
-    running: true, speed: 2, dfiltN: 8, awOn: true,
+    running: false, started: false, speed: 2, dfiltN: 8, awOn: true,
     method: 'imc', learn: 'Kp', windowSec: 60
   };
 
@@ -125,6 +125,21 @@
     if (span !== 0) { var f = (pv - M.start) / span; if (M.t10 == null && f >= 0.1) M.t10 = rel; if (M.t90 == null && f >= 0.9) M.t90 = rel; }
     var band = Math.max(1e-9, 0.02 * Math.abs(span));
     if (Math.abs(pv - sp) > band) M.settle = rel;
+  }
+
+  // ---------------- reset / arm ----------------
+  // Re-initialize the running state from the current start conditions (y0 etc.)
+  // without touching the started/running flags — shared by RESET, START, STEP,
+  // and the live initial-condition preview while the sim is still armed.
+  function doReset() {
+    var y = state.y0;
+    buf = { t: [], sp: [], pv: [], mv: [], err: [] };
+    hist = [];
+    S = { y: y, y2: 0, I: 0, prevPv: y, dFilt: 0, prevMv: 0, delay: [], simT: 0, distEnd: 0 };
+    last = { pv: y, mv: 0, err: 0, P: 0, I: 0, D: 0, sat: false };
+    resetMetrics(y); acc = 0; ref = null;
+    if (el.clrRefBtn) el.clrRefBtn.style.display = 'none';
+    draw(); syncReadouts();
   }
 
   // ---------------- main loop ----------------
@@ -393,13 +408,15 @@
     el.winSec.textContent = s.windowSec;
 
     // status
-    var statusText = s.mode === 'manual' ? 'MANUAL' : (s.running ? 'RUNNING' : 'PAUSED');
-    var statusDot = s.mode === 'manual' ? '#ea8a0c' : (s.running ? '#34d399' : '#94a3b8');
+    var armed = !s.started;
+    var statusText = s.mode === 'manual' ? 'MANUAL' : (armed ? 'READY' : (s.running ? 'RUNNING' : 'PAUSED'));
+    var statusDot = s.mode === 'manual' ? '#ea8a0c' : (armed ? '#ea8a0c' : (s.running ? '#34d399' : '#94a3b8'));
     el.statusText.textContent = statusText;
     el.statusDot.style.background = statusDot;
-    el.statusDot.style.animation = (s.running && s.mode !== 'manual') ? 'recpulse 1.4s ease-in-out infinite' : '';
-    el.runBtn.textContent = s.running ? '⏸ PAUSE' : '▶ START';
+    el.statusDot.style.animation = (s.running && s.started && s.mode !== 'manual') ? 'recpulse 1.4s ease-in-out infinite' : '';
+    el.runBtn.textContent = armed ? '▶ START' : (s.running ? '⏸ PAUSE' : '▶ RESUME');
     el.runBtn.style.background = s.running ? '#1b1a17' : '#ea8a0c';
+    if (el.armHint) el.armHint.style.display = armed ? '' : 'none';
 
     // learn text
     var lt = learnMap[s.learn] || learnMap.Kp;
@@ -460,7 +477,7 @@
     ['scope', 'plantEq', 'plantSel', 'methodSel', 'learnSel', 'speedSel', 'windowSel', 'winSec',
       'statusText', 'statusDot', 'runBtn', 'learnTitle', 'learnBody', 'tuneKp', 'tuneKi', 'tuneKd',
       'fopdtTxt', 'tuneNote', 'spNum', 'tD', 'lgSP', 'lgPV', 'lgMV', 'lgERR', 'pTerm', 'iTerm', 'dTerm',
-      'satBadge', 'sampleCount'].forEach(function (id) { el[id] = $(id); });
+      'satBadge', 'sampleCount', 'armHint'].forEach(function (id) { el[id] = $(id); });
 
     // sliders
     makeSlider({ key: 'sp', label: 'Setpoint', unit: 'PV', hint: 'Target value the controller drives the process toward. Changing it triggers a step test.', min: 0, max: 100, step: 0.5, dec: 1, onChange: function () { resetMetrics(S.y); el.spNum.value = state.sp; } }, $('slot-sp'));
@@ -477,7 +494,7 @@
     makeSlider({ key: 'zeta', label: 'ζ · Damping ratio', unit: '', hint: '<1 underdamped (oscillates), =1 critical, >1 overdamped.', min: 0.1, max: 2, step: 0.02, dec: 2 }, $('slot-zeta'));
     makeSlider({ key: 'wn', label: 'ωn · Nat. frequency', unit: 'rad/s', hint: 'Natural frequency of the second-order process. Higher = faster.', min: 0.1, max: 2, step: 0.02, dec: 2 }, $('slot-wn'));
     makeSlider({ key: 'theta', label: 'θ · Dead time', unit: 's', hint: 'Transport delay before the process reacts. The hardest dynamic to control.', min: 0, max: 20, step: 0.5, dec: 1 }, $('slot-theta'));
-    makeSlider({ key: 'y0', label: 'Initial condition', unit: 'PV', hint: 'Process value at reset.', min: 0, max: 100, step: 1, dec: 0 }, $('slot-y0'));
+    makeSlider({ key: 'y0', label: 'Initial condition', unit: 'PV', hint: 'Process value at reset. While the sim is armed (READY), changing this previews the starting point.', min: 0, max: 100, step: 1, dec: 0, onChange: function () { if (!state.started) doReset(); } }, $('slot-y0'));
 
     makeSlider({ key: 'distMag', label: 'Magnitude', unit: '', hint: 'Step load added to the process input — simulates an upset the controller must reject.', min: -40, max: 40, step: 1, dec: 0 }, $('slot-distMag'));
     makeSlider({ key: 'noiseStd', label: 'Std deviation σ', unit: 'PV', hint: 'Gaussian measurement noise on the transmitter. Watch how it couples through Kd.', min: 0, max: 4, step: 0.1, dec: 1 }, $('slot-noiseStd'));
@@ -509,14 +526,17 @@
     $('goForm').addEventListener('submit', function (e) { e.preventDefault(); resetMetrics(S.y); });
 
     // transport
-    el.runBtn.addEventListener('click', function () { state.running = !state.running; syncControls(); });
-    $('stepBtn').addEventListener('click', function () { step(state.dt); draw(); syncReadouts(); });
+    el.runBtn.addEventListener('click', function () {
+      if (!state.started) { doReset(); state.started = true; state.running = true; }
+      else { state.running = !state.running; }
+      syncControls();
+    });
+    $('stepBtn').addEventListener('click', function () {
+      if (!state.started) { doReset(); state.started = true; }
+      step(state.dt); draw(); syncReadouts(); syncControls();
+    });
     $('resetBtn').addEventListener('click', function () {
-      var y = state.y0; buf = { t: [], sp: [], pv: [], mv: [], err: [] }; hist = [];
-      S = { y: y, y2: 0, I: 0, prevPv: y, dFilt: 0, prevMv: 0, delay: [], simT: 0, distEnd: 0 };
-      last = { pv: y, mv: 0, err: 0, P: 0, I: 0, D: 0, sat: false };
-      resetMetrics(y); acc = 0; ref = null; el.clrRefBtn.style.display = 'none';
-      draw(); syncReadouts();
+      doReset(); state.started = false; state.running = false; syncControls();
     });
     $('snapBtn').addEventListener('click', function () {
       var tEnd = buf.t.length ? buf.t[buf.t.length - 1] : 0;

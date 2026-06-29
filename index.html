@@ -66,8 +66,8 @@
     </div>
     <div style="display:flex;align-items:center;gap:9px;">
       <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;background:#fff;border:1px solid #e3ddd0;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;">
-        <span id="statusDot" style="width:8px;height:8px;border-radius:50%;background:#34d399;"></span>
-        <span id="statusText" style="color:#1b1a17;">RUNNING</span>
+        <span id="statusDot" style="width:8px;height:8px;border-radius:50%;background:#ea8a0c;"></span>
+        <span id="statusText" style="color:#1b1a17;">READY</span>
       </div>
       <div style="padding:7px 13px;border-radius:8px;background:#fff;border:1px solid #e3ddd0;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;color:#7c766a;">t = <span id="tD" style="color:#1b1a17;">0.0</span> s</div>
     </div>
@@ -213,7 +213,7 @@
 
       <!-- TRANSPORT CARD -->
       <div class="card" style="padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <button id="runBtn" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font:600 11.5px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;cursor:pointer;background:#1b1a17;color:#fff;">⏸ PAUSE</button>
+        <button id="runBtn" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font:600 11.5px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;cursor:pointer;background:#ea8a0c;color:#fff;">▶ START</button>
         <button id="stepBtn" class="ghost-btn">⏭ STEP</button>
         <button id="resetBtn" class="ghost-btn">↺ RESET</button>
 
@@ -238,6 +238,7 @@
         <div style="width:1px;height:24px;background:#e9e4d8;"></div>
         <button id="snapBtn" style="padding:9px 13px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#1b1a17;cursor:pointer;">⊕ SNAPSHOT</button>
         <button id="clrRefBtn" style="display:none;padding:9px 13px;border:1px solid #e3ddd0;border-radius:8px;background:#faf8f3;font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#7c766a;cursor:pointer;">✕ CLEAR REF</button>
+        <div id="armHint" style="flex-basis:100%;font:500 10.5px/1.4 'IBM Plex Mono',monospace;color:#9a9486;">▸ Set your start conditions (controller, plant, setpoint, initial value), then press <span style="color:#ea8a0c;font-weight:600;">START</span>.</div>
       </div>
     </div>
 
