@@ -1,9 +1,14 @@
 # Rekalibrasi Control Lab
 
-A real-time, browser-based **PID controller tuning simulator** for process-control
-education and engineering training. Tune `Kp / Ki / Kd` against configurable plant
-models and watch the live strip chart respond — overshoot, settling, windup, dead
-time, sensor noise, actuator saturation, and auto-tuning rules, all in real time.
+Two related, real-time, browser-based process-control simulators that share one
+control-room HMI look:
+
+| App | Path | What it is |
+| --- | --- | --- |
+| **tuning-pid** | `/` (root) | The focused **PID tuning simulator** — tune `Kp/Ki/Kd` against configurable plant models and watch the live strip chart. |
+| **control-sim** | `/control-sim/` | The **closed-loop process simulator** — the same loop rebuilt from industrial instrument blocks (measuring element → transmitter → controller → valve → process) with an engineering-unit signal chain (EU ↔ % ↔ 4–20 mA). |
+
+The two pages cross-link from their headers. Both are dependency-free static pages.
 
 ![Rekalibrasi Control Lab](design/screenshots/lab2.png)
 
@@ -72,9 +77,14 @@ Drag-and-drop or point any of these at the repository root:
 ## Project layout
 
 ```
-index.html                     Standalone app — markup, styles, layout
-app.js                         Simulation engine + UI binding (no framework, no CDN)
-.github/workflows/deploy.yml   GitHub Pages deployment
+index.html                     tuning-pid — markup, styles, layout
+app.js                         tuning-pid — simulation + UI binding (no framework, no CDN)
+control-sim/
+  index.html                   control-sim — markup, styles, layout
+  app.js                       control-sim — UI/state binding, chart, metrics, export
+  engine.js                    control-sim — modular closed-loop block engine
+                               (Process → Sensor → Transmitter → Controller → Valve)
+.github/workflows/deploy.yml   GitHub Pages deployment (serves both apps)
 design/                        Original Design-Component (DC) source this was ported from
   Rekalibrasi Control Lab.dc.html
   ParamSlider.dc.html
@@ -82,6 +92,21 @@ design/                        Original Design-Component (DC) source this was po
   support.js
   screenshots/
 ```
+
+## control-sim: the block engine
+
+`control-sim/engine.js` runs the loop as discrete industrial components, each a
+block with its own state and `step(dt, inputs, params)`:
+
+```
+Process → Sensor(lag+noise) → Transmitter(EU→%/mA) → Controller(discrete PID,
+sample-and-hold @ scan time) → Valve(slew) → back to Process
+```
+
+Signals travel in real engineering units (PV in EU → transmitter % of range →
+4–20 mA → controller output % → valve travel % → 4–20 mA), shown live in the
+**Signal Chain** panel. It is the foundation for later phases (valve stiction,
+sensor faults, cascade, feedforward, and a P&ID block-diagram view).
 
 ## How it was built
 

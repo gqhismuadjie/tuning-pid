@@ -1,11 +1,13 @@
 /*
  * Rekalibrasi Control Lab — standalone, dependency-free build.
  *
- * Ported from the original Design-Component (DC) source in design/. The
- * simulation core (step / plantStep / metrics / draw / auto-tune / export) is
- * preserved verbatim from the original DCLogic class; only the React/DC
- * rendering layer has been replaced with direct DOM binding so the app runs
- * as a plain static page on any web host.
+ * Originally ported from the Design-Component (DC) source in design/. The
+ * simulation now runs on the modular closed-loop block engine in engine.js
+ * (Process → Sensor → Transmitter → Controller → Valve), carrying signals in
+ * real engineering units (EU ↔ % of range ↔ 4–20 mA) with a discrete
+ * controller scan time. This file owns UI state, DOM binding, the strip-chart
+ * canvas, metrics, auto-tuning, and export; it maps the flat UI state into the
+ * engine config each tick via cfg().
  */
 (function () {
   'use strict';
@@ -18,20 +20,34 @@
     plant: 'fopdt', K: 1, tau: 12, theta: 2.5, zeta: 0.7, wn: 0.4, y0: 0,
     distOn: false, distMag: 15, noiseOn: false, noiseStd: 0.6, slewOn: false, slew: 120,
     running: false, started: false, speed: 2, dfiltN: 8, awOn: true,
-    method: 'imc', learn: 'Kp', windowSec: 60
+    method: 'imc', learn: 'Kp', windowSec: 60,
+    // ---- instrumentation / signal chain (block engine) ----
+    unit: 'PV', lrv: 0, urv: 100, sensorTau: 0, txDamp: 0, scanTime: 0.1
   };
 
   // simulation working vars
-  var S, last, buf, hist, M, ref = null, _sp = null;
+  var loop, S, last, buf, hist, M, ref = null;
   var acc = 0, lastTs = null, lastUi = 0;
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function fmt(v, d) { if (v == null || !isFinite(v)) return '—'; return v.toFixed(d); }
-  function gauss() {
-    if (_sp != null) { var s = _sp; _sp = null; return s; }
-    var u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random();
-    var m = Math.sqrt(-2 * Math.log(u)); _sp = m * Math.sin(2 * Math.PI * v); return m * Math.cos(2 * Math.PI * v);
+
+  // Build the per-tick block-engine config from the flat UI state. distActive
+  // carries the timed disturbance pulse (S.distEnd is relative to sim time).
+  function cfg() {
+    var s = state;
+    return {
+      spEu: s.sp, y0: s.y0,
+      proc: { plant: s.plant, K: s.K, tau: s.tau, theta: s.theta, zeta: s.zeta, wn: s.wn },
+      sensor: { tau: s.sensorTau, noiseOn: s.noiseOn, noiseStd: s.noiseStd },
+      tx: { lrv: s.lrv, urv: s.urv, damp: s.txDamp },
+      ctrl: { ctype: s.ctype, mode: s.mode, dir: s.dir, Kp: s.Kp, Ki: s.Ki, Kd: s.Kd, outMin: s.outMin, outMax: s.outMax, dfiltN: s.dfiltN, awOn: s.awOn, manual: s.manual, scanTime: s.scanTime },
+      valve: { slewOn: s.slewOn, slew: s.slew },
+      distOn: s.distOn, distMag: s.distMag, distActive: (S.distEnd > S.simT)
+    };
   }
+  // Current true process value (EU) — replaces the old S.y back-reference.
+  function pvNow() { return loop ? loop.process.y : state.y0; }
 
   function resetMetrics(start) {
     M = {
@@ -42,69 +58,26 @@
   }
 
   function initInstance() {
+    loop = new RKL.Loop();
     buf = { t: [], sp: [], pv: [], mv: [], err: [] };
     hist = [];
-    S = { y: state.y0, y2: 0, I: 0, prevPv: state.y0, dFilt: 0, prevMv: 0, delay: [], simT: 0, distEnd: 0 };
-    last = { pv: state.y0, mv: 0, err: 0, P: 0, I: 0, D: 0, sat: false };
+    S = { simT: 0, distEnd: 0 };
+    loop.reset(cfg());
+    last = { pv: state.y0, mv: 0, err: 0, P: 0, I: 0, D: 0, sat: false, sig: null };
     ref = null;
     resetMetrics(state.y0);
     acc = 0; lastTs = null; lastUi = 0;
   }
 
   // ---------------- simulation step ----------------
+  // One fine integration step: advance the block loop, then record + score.
+  // The chart/metrics work in engineering units (SP/PV in EU, MV in valve %).
   function step(dt) {
-    var st = state;
-    var meas = S.y + (st.noiseOn ? gauss() * st.noiseStd : 0);
-    var actSign = st.dir === 'direct' ? 1 : -1;
-    var error = actSign * (st.sp - meas);
-    var P = 0, I = S.I, D = 0, out, outSat, sat = false;
-
-    if (st.mode === 'manual') {
-      out = st.manual; outSat = clamp(out, st.outMin, st.outMax);
-      S.I = outSat; S.prevPv = meas; S.dFilt = 0; I = outSat;
-    } else {
-      var Kp = st.Kp, Ki = st.ctype === 'P' ? 0 : st.Ki, Kd = st.ctype === 'PID' ? st.Kd : 0;
-      P = Kp * error;
-      var dMeas = (meas - S.prevPv) / dt;
-      var Tf = (Kd > 0 && Kp > 0) ? Kd / (Kp * st.dfiltN) : 0;
-      var a = Tf > 0 ? dt / (Tf + dt) : 1;
-      S.dFilt = S.dFilt + a * ((-actSign * Kd * dMeas) - S.dFilt);
-      D = S.dFilt;
-      var Ic = S.I + Ki * error * dt;
-      out = P + Ic + D; outSat = clamp(out, st.outMin, st.outMax);
-      if (out !== outSat) { sat = true; if (st.awOn) { Ic = S.I; out = P + Ic + D; outSat = clamp(out, st.outMin, st.outMax); } }
-      S.I = Ic; I = Ic; S.prevPv = meas;
-    }
-
-    var mv = outSat;
-    if (st.slewOn) { var md = st.slew * dt; mv = clamp(mv, S.prevMv - md, S.prevMv + md); }
-    S.prevMv = mv;
-
-    var dist = st.distOn ? st.distMag : 0;
-    if (S.distEnd > S.simT) dist += st.distMag;
-    var uIn = mv + dist;
-
-    plantStep(dt, uIn);
-
+    var sig = loop.step(dt, cfg());
     S.simT += dt;
-    record(S.simT, st.sp, meas, mv, st.sp - meas);
-    accMetrics(S.simT, st.sp, meas, mv, dt);
-    last = { pv: meas, mv: mv, err: st.sp - meas, P: P, I: I, D: D, sat: sat };
-  }
-
-  function plantStep(dt, u) {
-    var st = state, K = st.K;
-    function delayed(val) {
-      if (st.theta <= 0) return val;
-      var n = Math.max(1, Math.round(st.theta / dt));
-      if (S.delay.length !== n) { S.delay = new Array(n).fill(val); }
-      S.delay.push(val); return S.delay.shift();
-    }
-    if (st.plant === 'first') { S.y += dt * (K * u - S.y) / st.tau; }
-    else if (st.plant === 'fopdt') { var du = delayed(u); S.y += dt * (K * du - S.y) / st.tau; }
-    else if (st.plant === 'integrating') { S.y += dt * K * u * 0.1; }
-    else if (st.plant === 'second') { var w = st.wn, z = st.zeta; S.y2 += dt * (K * w * w * u - 2 * z * w * S.y2 - w * w * S.y); S.y += dt * S.y2; }
-    else if (st.plant === 'sopdt') { var du2 = delayed(u); var w2 = st.wn, z2 = st.zeta; S.y2 += dt * (K * w2 * w2 * du2 - 2 * z2 * w2 * S.y2 - w2 * w2 * S.y); S.y += dt * S.y2; }
+    record(S.simT, sig.spEu, sig.measEu, sig.valvePct, sig.errEu);
+    accMetrics(S.simT, sig.spEu, sig.measEu, sig.valvePct, dt);
+    last = { pv: sig.measEu, mv: sig.valvePct, err: sig.errEu, P: sig.P, I: sig.I, D: sig.D, sat: sig.sat, sig: sig };
   }
 
   function record(t, sp, pv, mv, err) {
@@ -135,8 +108,9 @@
     var y = state.y0;
     buf = { t: [], sp: [], pv: [], mv: [], err: [] };
     hist = [];
-    S = { y: y, y2: 0, I: 0, prevPv: y, dFilt: 0, prevMv: 0, delay: [], simT: 0, distEnd: 0 };
-    last = { pv: y, mv: 0, err: 0, P: 0, I: 0, D: 0, sat: false };
+    S = { simT: 0, distEnd: 0 };
+    loop.reset(cfg());
+    last = { pv: y, mv: 0, err: 0, P: 0, I: 0, D: 0, sat: false, sig: null };
     resetMetrics(y); acc = 0; ref = null;
     if (el.clrRefBtn) el.clrRefBtn.style.display = 'none';
     draw(); syncReadouts();
@@ -219,7 +193,7 @@
       var x = padL + (gx / 6) * pw; ctx.strokeStyle = PAL.gridV; ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ph); ctx.stroke();
       var tv = tStart + (gx / 6) * winS; if (tEnd > 0) { ctx.fillStyle = PAL.axisL; ctx.fillText(tv.toFixed(0) + 's', x, padT + ph + 6); }
     }
-    ctx.fillStyle = PAL.axisL; ctx.textAlign = 'left'; ctx.fillText('PV', padL, padT - 1);
+    ctx.fillStyle = PAL.axisL; ctx.textAlign = 'left'; ctx.fillText(state.unit || 'PV', padL, padT - 1);
     ctx.fillStyle = PAL.axisR; ctx.textAlign = 'right'; ctx.fillText('MV%', padL + pw, padT - 1);
 
     if (b.t.length < 2) { return; }
@@ -307,8 +281,9 @@
     var payload = {
       tool: 'Rekalibrasi Control Lab', generated: new Date().toISOString(),
       disclaimer: 'Education / training only. Do not apply directly to real processes without proper engineering validation.',
-      controller: { type: st.ctype, mode: st.mode, direction: st.dir, Kp: st.Kp, Ki: st.Ki, Kd: st.Kd, setpoint: st.sp, dt: st.dt, outMin: st.outMin, outMax: st.outMax, antiWindup: st.awOn },
+      controller: { type: st.ctype, mode: st.mode, direction: st.dir, Kp: st.Kp, Ki: st.Ki, Kd: st.Kd, setpoint: st.sp, dt: st.dt, scanTime: st.scanTime, outMin: st.outMin, outMax: st.outMax, antiWindup: st.awOn },
       plant: { model: st.plant, K: st.K, tau: st.tau, theta: st.theta, zeta: st.zeta, wn: st.wn, y0: st.y0 },
+      instrumentation: { unit: st.unit, rangeLRV: st.lrv, rangeURV: st.urv, sensorTau: st.sensorTau, transmitterDamping: st.txDamp },
       conditions: { disturbance: st.distOn ? st.distMag : 0, sensorNoiseStd: st.noiseOn ? st.noiseStd : 0, slewLimit: st.slewOn ? st.slew : null },
       metrics: m,
       samples: hist.map(function (r) { return { time: +r[0].toFixed(3), setpoint: r[1], processVariable: +r[2].toFixed(4), controllerOutput: +r[3].toFixed(4), error: +r[4].toFixed(4) }; })
@@ -362,7 +337,41 @@
     wrap.appendChild(row); wrap.appendChild(input);
     container.appendChild(wrap);
     valTxt.nodeValue = fmt(state[cfg.key], cfg.dec);
-    sliders[cfg.key] = { input: input, disp: valTxt, dec: cfg.dec, wrap: wrap };
+    sliders[cfg.key] = { input: input, disp: valTxt, dec: cfg.dec, wrap: wrap, unitEl: unit, euUnit: !!cfg.euUnit };
+  }
+
+  // ---- signal-chain readout (block-engine signal bus) ----
+  var sigDefs = [
+    { key: 'measEu', label: 'PV', eu: true, dec: 2 },
+    { key: 'pvPct', label: 'PV %', unit: '%', dec: 1 },
+    { key: 'pvMA', label: 'PV xmtr', unit: 'mA', dec: 2 },
+    { key: 'spEu', label: 'SP', eu: true, dec: 1 },
+    { key: 'errPct', label: 'Error', unit: '%', dec: 1 },
+    { key: 'outPct', label: 'Ctrl out', unit: '%', dec: 1 },
+    { key: 'valvePct', label: 'Valve', unit: '%', dec: 1 },
+    { key: 'valveMA', label: 'Valve sig', unit: 'mA', dec: 2 }
+  ];
+  var sigRefs = {};
+  function buildSigChain(grid) {
+    sigDefs.forEach(function (d) {
+      var box = document.createElement('div'); box.className = 'ms';
+      var lab = document.createElement('span'); lab.className = 'ms-label'; lab.textContent = d.label;
+      var val = document.createElement('span'); val.className = 'ms-val'; val.style.fontSize = '15px';
+      var t = document.createTextNode('—');
+      var unit = document.createElement('span'); unit.className = 'ms-unit'; unit.textContent = d.eu ? state.unit : d.unit;
+      val.appendChild(t); val.appendChild(unit);
+      box.appendChild(lab); box.appendChild(val);
+      grid.appendChild(box);
+      sigRefs[d.key] = { txt: t, unitEl: unit, def: d };
+    });
+  }
+  // Refresh EU unit labels (setpoint/PV/range sliders + signal chain) when the unit changes.
+  function applyUnit() {
+    ['sp', 'y0', 'lrv', 'urv', 'noiseStd'].forEach(function (k) {
+      if (sliders[k] && sliders[k].euUnit) sliders[k].unitEl.textContent = state.unit;
+    });
+    sigDefs.forEach(function (d) { if (d.eu && sigRefs[d.key]) sigRefs[d.key].unitEl.textContent = state.unit; });
+    if (metricRefs.steadyStateError && metricRefs.steadyStateError.unitEl) metricRefs.steadyStateError.unitEl.textContent = state.unit;
   }
 
   var metricDefs = [
@@ -388,7 +397,7 @@
       val.appendChild(t); val.appendChild(unit);
       box.appendChild(lab); box.appendChild(val);
       grid.appendChild(box);
-      metricRefs[d.key] = { txt: t, val: val, def: d };
+      metricRefs[d.key] = { txt: t, val: val, def: d, unitEl: unit };
     });
   }
 
@@ -506,6 +515,13 @@
       else if (tone === 'sse') tone = Math.abs(m.steadyStateError) <= 1 ? 'var(--green)' : 'var(--red)';
       ref2.val.style.color = tone;
     });
+
+    // signal-chain bus readout
+    var sig = L.sig;
+    sigDefs.forEach(function (d) {
+      var r = sigRefs[d.key];
+      r.txt.nodeValue = sig ? fmt(sig[d.key], d.dec) : '—';
+    });
   }
 
   // ---------------- wiring ----------------
@@ -513,10 +529,10 @@
     ['scope', 'plantEq', 'plantSel', 'methodSel', 'learnSel', 'speedSel', 'windowSel', 'winSec',
       'statusText', 'statusDot', 'runBtn', 'learnTitle', 'learnBody', 'tuneKp', 'tuneKi', 'tuneKd',
       'fopdtTxt', 'tuneNote', 'spNum', 'tD', 'lgSP', 'lgPV', 'lgMV', 'lgERR', 'pTerm', 'iTerm', 'dTerm',
-      'satBadge', 'sampleCount', 'armHint', 'themeBtn'].forEach(function (id) { el[id] = $(id); });
+      'satBadge', 'sampleCount', 'armHint', 'themeBtn', 'unitSel'].forEach(function (id) { el[id] = $(id); });
 
     // sliders
-    makeSlider({ key: 'sp', label: 'Setpoint', unit: 'PV', hint: 'Target value the controller drives the process toward. Changing it triggers a step test.', min: 0, max: 100, step: 0.5, dec: 1, onChange: function () { resetMetrics(S.y); el.spNum.value = state.sp; } }, $('slot-sp'));
+    makeSlider({ key: 'sp', label: 'Setpoint', unit: state.unit, euUnit: true, hint: 'Target value the controller drives the process toward. Changing it triggers a step test.', min: 0, max: 100, step: 0.5, dec: 1, onChange: function () { resetMetrics(pvNow()); el.spNum.value = state.sp; } }, $('slot-sp'));
     makeSlider({ key: 'Kp', label: 'Kp · Prop. gain', unit: '', hint: 'Proportional gain. Higher = faster, stronger response but more overshoot and possible oscillation.', min: 0, max: 12, step: 0.01, dec: 2 }, $('slot-Kp'));
     makeSlider({ key: 'Ki', label: 'Ki · Integral gain', unit: '1/s', hint: 'Integral gain. Eliminates steady-state error; too high causes windup and oscillation.', min: 0, max: 4, step: 0.005, dec: 3 }, $('slot-Ki'));
     makeSlider({ key: 'Kd', label: 'Kd · Deriv. gain', unit: 's', hint: 'Derivative gain. Damps overshoot by reacting to rate of change; amplifies sensor noise.', min: 0, max: 6, step: 0.01, dec: 2 }, $('slot-Kd'));
@@ -530,13 +546,21 @@
     makeSlider({ key: 'zeta', label: 'ζ · Damping ratio', unit: '', hint: '<1 underdamped (oscillates), =1 critical, >1 overdamped.', min: 0.1, max: 2, step: 0.02, dec: 2 }, $('slot-zeta'));
     makeSlider({ key: 'wn', label: 'ωn · Nat. frequency', unit: 'rad/s', hint: 'Natural frequency of the second-order process. Higher = faster.', min: 0.1, max: 2, step: 0.02, dec: 2 }, $('slot-wn'));
     makeSlider({ key: 'theta', label: 'θ · Dead time', unit: 's', hint: 'Transport delay before the process reacts. The hardest dynamic to control.', min: 0, max: 20, step: 0.5, dec: 1 }, $('slot-theta'));
-    makeSlider({ key: 'y0', label: 'Initial condition', unit: 'PV', hint: 'Process value at reset. While the sim is armed (READY), changing this previews the starting point.', min: 0, max: 100, step: 1, dec: 0, onChange: function () { if (!state.started) doReset(); } }, $('slot-y0'));
+    makeSlider({ key: 'y0', label: 'Initial condition', unit: state.unit, euUnit: true, hint: 'Process value at reset. While the sim is armed (READY), changing this previews the starting point.', min: 0, max: 100, step: 1, dec: 0, onChange: function () { if (!state.started) doReset(); } }, $('slot-y0'));
 
     makeSlider({ key: 'distMag', label: 'Magnitude', unit: '', hint: 'Step load added to the process input — simulates an upset the controller must reject.', min: -40, max: 40, step: 1, dec: 0 }, $('slot-distMag'));
-    makeSlider({ key: 'noiseStd', label: 'Std deviation σ', unit: 'PV', hint: 'Gaussian measurement noise on the transmitter. Watch how it couples through Kd.', min: 0, max: 4, step: 0.1, dec: 1 }, $('slot-noiseStd'));
+    makeSlider({ key: 'noiseStd', label: 'Std deviation σ', unit: state.unit, euUnit: true, hint: 'Gaussian measurement noise on the transmitter. Watch how it couples through Kd.', min: 0, max: 4, step: 0.1, dec: 1 }, $('slot-noiseStd'));
     makeSlider({ key: 'slew', label: 'Max rate', unit: '%/s', hint: 'Limits how fast the valve / actuator can move — models real actuator dynamics.', min: 5, max: 300, step: 5, dec: 0 }, $('slot-slew'));
 
+    // ---- instrumentation / signal chain (block engine) ----
+    makeSlider({ key: 'lrv', label: 'Range LRV (0%)', unit: state.unit, euUnit: true, hint: 'Lower Range Value — the engineering value the transmitter maps to 0% / 4 mA.', min: -50, max: 100, step: 1, dec: 0, onChange: function () { if (!state.started) doReset(); } }, $('slot-lrv'));
+    makeSlider({ key: 'urv', label: 'Range URV (100%)', unit: state.unit, euUnit: true, hint: 'Upper Range Value — the engineering value the transmitter maps to 100% / 20 mA.', min: 0, max: 300, step: 1, dec: 0, onChange: function () { if (!state.started) doReset(); } }, $('slot-urv'));
+    makeSlider({ key: 'sensorTau', label: 'Sensor lag τ', unit: 's', hint: 'Measuring-element time constant (thermowell / RTD lag). Adds dynamics inside the loop.', min: 0, max: 20, step: 0.5, dec: 1 }, $('slot-sensorTau'));
+    makeSlider({ key: 'txDamp', label: 'Transmitter damping', unit: 's', hint: 'Transmitter PV filter (damping). Smooths noise but adds lag to the measurement.', min: 0, max: 10, step: 0.5, dec: 1 }, $('slot-txDamp'));
+    makeSlider({ key: 'scanTime', label: 'Controller scan time', unit: 's', hint: 'Discrete controller execution period (sample-and-hold). The process integrates continuously; the controller updates only each scan.', min: 0.1, max: 5, step: 0.1, dec: 1 }, $('slot-scanTime'));
+
     buildMetrics($('metricsGrid'));
+    buildSigChain($('sigChain'));
 
     // segmented buttons
     document.querySelectorAll('[data-ctype]').forEach(function (b) { b.addEventListener('click', function () { state.ctype = b.getAttribute('data-ctype'); syncControls(); }); });
@@ -555,11 +579,12 @@
     el.learnSel.addEventListener('change', function (e) { state.learn = e.target.value; syncControls(); });
     el.speedSel.addEventListener('change', function (e) { state.speed = parseFloat(e.target.value); });
     el.windowSel.addEventListener('change', function (e) { state.windowSec = parseInt(e.target.value, 10); el.winSec.textContent = state.windowSec; });
+    el.unitSel.addEventListener('change', function (e) { state.unit = e.target.value; applyUnit(); draw(); });
 
     // go-to form
     el.spNum.value = state.sp;
-    el.spNum.addEventListener('input', function (e) { var v = parseFloat(e.target.value); if (isFinite(v)) { state.sp = v; sliders.sp.input.value = v; sliders.sp.disp.nodeValue = fmt(v, 1); resetMetrics(S.y); } });
-    $('goForm').addEventListener('submit', function (e) { e.preventDefault(); resetMetrics(S.y); });
+    el.spNum.addEventListener('input', function (e) { var v = parseFloat(e.target.value); if (isFinite(v)) { state.sp = v; sliders.sp.input.value = v; sliders.sp.disp.nodeValue = fmt(v, 1); resetMetrics(pvNow()); } });
+    $('goForm').addEventListener('submit', function (e) { e.preventDefault(); resetMetrics(pvNow()); });
 
     // transport
     el.runBtn.addEventListener('click', function () {
@@ -597,6 +622,8 @@
     el.themeBtn.addEventListener('click', toggleTheme);
     setThemeLabel();
 
+    el.unitSel.value = state.unit;
+    applyUnit();
     syncControls();
     syncReadouts();
     setInterval(tickfn, 33);

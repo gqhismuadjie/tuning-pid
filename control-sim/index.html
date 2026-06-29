@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rekalibrasi Control Lab — PID Live Tuning Simulator</title>
-<meta name="description" content="A real-time, browser-based PID controller tuning simulator for process-control education and training. Tune Kp/Ki/Kd against configurable plant models and watch the live strip chart.">
+<title>Rekalibrasi Control-Sim — Closed-Loop Process Simulator</title>
+<meta name="description" content="A real-time, browser-based closed-loop process-control simulator built from industrial instrument blocks (measuring element, transmitter, controller, valve, process) with an engineering-unit signal chain (EU ↔ % ↔ 4–20 mA).">
 <meta name="color-scheme" content="light dark">
 <script>
   // Apply saved / preferred theme before first paint to avoid a flash.
@@ -190,12 +190,12 @@
         <div style="width:16px;height:16px;border:2.5px solid var(--cyan);border-radius:50%;border-right-color:transparent;border-bottom-color:transparent;transform:rotate(20deg);box-shadow:var(--logo-glow);"></div>
       </div>
       <div>
-        <div style="font:700 17px/1 var(--font-ui);letter-spacing:.01em;color:var(--txt);">REKALIBRASI <span style="color:var(--cyan);text-shadow:var(--glow-cyan);">CONTROL LAB</span></div>
-        <div style="font:500 10.5px/1.4 var(--font-ui);color:var(--txt-mut);letter-spacing:.06em;margin-top:4px;">PID LIVE TUNING SIMULATOR · PROCESS CONTROL TRAINING</div>
+        <div style="font:700 17px/1 var(--font-ui);letter-spacing:.01em;color:var(--txt);">REKALIBRASI <span style="color:var(--cyan);text-shadow:var(--glow-cyan);">CONTROL-SIM</span></div>
+        <div style="font:500 10.5px/1.4 var(--font-ui);color:var(--txt-mut);letter-spacing:.06em;margin-top:4px;">CLOSED-LOOP PROCESS SIMULATOR · INSTRUMENT SIGNAL CHAIN</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:9px;">
-      <a href="control-sim/" class="btn" style="padding:7px 11px;font-size:10.5px;text-decoration:none;color:var(--cyan);" title="Open the closed-loop process simulator">CONTROL-SIM →</a>
+      <a href="../" class="btn" style="padding:7px 11px;font-size:10.5px;text-decoration:none;" title="Back to the PID tuning simulator">← TUNING-PID</a>
       <button id="themeBtn" class="btn" style="padding:7px 11px;font-size:10.5px;" aria-label="Toggle light or dark theme">☀ LIGHT</button>
       <div class="pill"><span id="statusDot" class="lamp"></span><span id="statusText" style="color:var(--txt);">READY</span></div>
       <div class="pill" style="color:var(--txt-dim);">t = <span id="tD" class="seg-digit">0.0</span> s</div>
@@ -256,6 +256,7 @@
         <details style="margin-top:8px;">
           <summary style="font:600 10px/1.4 var(--font-ui);letter-spacing:.06em;color:var(--txt-dim);cursor:pointer;">▸ ADVANCED · dt · output limits</summary>
           <div id="slot-dt"></div>
+          <div id="slot-scanTime"></div>
           <div id="slot-outMin"></div>
           <div id="slot-outMax"></div>
         </details>
@@ -279,6 +280,29 @@
         <div id="slot-wn"></div>
         <div id="slot-theta"></div>
         <div id="slot-y0"></div>
+      </div>
+
+      <!-- INSTRUMENTATION CARD -->
+      <div class="card">
+        <div class="head-between"><span class="ctitle">Measuring Element · Transmitter</span><span class="ctag">EU · 4–20 mA</span></div>
+        <div class="sub">Engineering unit</div>
+        <select id="unitSel" class="field" style="margin-bottom:4px;">
+          <option value="PV">PV (generic)</option>
+          <option value="%">% (percent)</option>
+          <option value="°C">°C (temperature)</option>
+          <option value="°F">°F (temperature)</option>
+          <option value="m³/h">m³/h (flow)</option>
+          <option value="m">m (level)</option>
+          <option value="bar">bar (pressure)</option>
+          <option value="kPa">kPa (pressure)</option>
+          <option value="pH">pH</option>
+          <option value="rpm">rpm (speed)</option>
+        </select>
+        <div id="slot-lrv"></div>
+        <div id="slot-urv"></div>
+        <div id="slot-sensorTau"></div>
+        <div id="slot-txDamp"></div>
+        <div class="note" style="margin-top:6px;">Transmitter maps PV (EU) → % of range → 4–20 mA into the controller.</div>
       </div>
 
       <!-- DISTURBANCE CARD -->
@@ -363,6 +387,13 @@
         <button id="clrRefBtn" class="btn" style="display:none;padding:9px 13px;font-size:10.5px;color:var(--txt-dim);">✕ CLEAR REF</button>
         <div id="armHint" style="flex-basis:100%;font:500 10.5px/1.4 var(--font-ui);color:var(--txt-mut);">▸ Set your start conditions (controller, plant, setpoint, initial value), then press <span style="color:var(--green);font-weight:700;text-shadow:var(--glow-green);">START</span>.</div>
       </div>
+
+      <!-- SIGNAL CHAIN CARD -->
+      <div class="card">
+        <div class="head-between"><span class="ctitle">Signal Chain · Live Bus</span><span class="ctag">Process → Sensor → Xmtr → Controller → Valve</span></div>
+        <div id="sigChain" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
+        <div class="note" style="margin-top:9px;">Each element is a block with its own dynamics &amp; units; values above are the live signals flowing around the closed loop.</div>
+      </div>
     </div>
 
     <!-- RIGHT COLUMN -->
@@ -441,6 +472,7 @@
   </div>
 
 </div>
+<script src="engine.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
